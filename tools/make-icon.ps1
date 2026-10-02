@@ -97,3 +97,20 @@ Write-Host "Wrote $((Resolve-Path $output).Path) ($($file.Length) bytes, sizes: 
 $preview = Join-Path ([System.IO.Path]::GetTempPath()) 'dashio-icon-preview.png'
 [System.IO.File]::WriteAllBytes($preview, (New-IconPng 256))
 Write-Host "Preview: $preview"
+
+# The four-square mark shown for Windows itself in the lists.
+$logoPath = Join-Path $PSScriptRoot '..\src\Dashio.App\Assets\WindowsLogo.png'
+$logoSize = 128
+$logo = [System.Drawing.Bitmap]::new($logoSize, $logoSize, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+$lg = [System.Drawing.Graphics]::FromImage($logo)
+$lg.Clear([System.Drawing.Color]::Transparent)
+$blue = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(255, 0, 120, 212))
+$margin = 14; $gap = 6
+$square = ($logoSize - 2 * $margin - $gap) / 2
+foreach ($x in $margin, ($margin + $square + $gap)) {
+    foreach ($y in $margin, ($margin + $square + $gap)) { $lg.FillRectangle($blue, [single]$x, [single]$y, [single]$square, [single]$square) }
+}
+$lg.Dispose()
+$logo.Save($logoPath, [System.Drawing.Imaging.ImageFormat]::Png)
+$logo.Dispose()
+Write-Host "Wrote $((Resolve-Path $logoPath).Path)"

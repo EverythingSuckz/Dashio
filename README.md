@@ -1,7 +1,7 @@
 # Dashio
 
-Dashio shows what every app on your Windows 11 PC has set up to start by itself, grouped by
-app, and lets you switch those things off and back on.
+Dashio shows what every app on your Windows 11 PC is using right now and what it has set up to
+start by itself, grouped by app, and lets you switch those things off and back on.
 
 Windows tracks services, scheduled tasks and startup entries in separate places, and Task
 Manager's Startup tab only shows some of them. An app can install four services and a
@@ -22,6 +22,21 @@ any change can be undone.
 | Store app startup | Startup tasks declared by Store packages |
 
 Parts of Windows itself are recognised by their signature, hidden by default and read-only.
+
+## What is running
+
+The Overview page shows memory and processor use for the whole PC and for each app, updated
+every two seconds (the interval can be changed or paused in Settings). An app's figure is the
+sum of everything it is running: its windows, its background programs and its services. Open
+an app to see each of its processes.
+
+Memory is the private working set, the same figure Task Manager's Memory column shows.
+Processor use is the share of the whole processor. Dashio reads these for every process
+without administrator rights, and measures nothing while its window is minimised.
+
+A running program is tied to an app by the services it hosts, the folder it runs from or its
+signature, never by a shared word in its name. Apps that run but start nothing by themselves
+appear on Overview only; the Apps page stays a list of what starts by itself.
 
 ## How items are matched to apps
 

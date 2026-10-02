@@ -36,17 +36,17 @@
             IsBackButtonVisible="{x:Bind NavFrame.CanGoBack, Mode=OneWay}"
             IsPaneToggleButtonVisible="True"
             PaneToggleRequested="TitleBar_PaneToggleRequested">
-            <!-- The name is a button: pressing it goes back to the Apps page. -->
+            <!-- The name is a button: pressing it goes back to Overview. -->
             <TitleBar.LeftHeader>
                 <Button
                     x:Name="HomeButton"
                     Padding="8,6,12,6"
                     AutomationProperties.AutomationId="HomeButton"
-                    AutomationProperties.Name="Dashio, go to Apps"
+                    AutomationProperties.Name="Dashio, go to Overview"
                     Background="{ThemeResource SubtleFillColorTransparentBrush}"
                     BorderThickness="0"
                     Click="Home_Click"
-                    ToolTipService.ToolTip="Go to Apps">
+                    ToolTipService.ToolTip="Go to Overview">
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <Image
                             Width="16"
@@ -104,6 +104,15 @@
             OpenPaneLength="232"
             SelectionChanged="NavView_SelectionChanged">
             <NavigationView.MenuItems>
+                <NavigationViewItem
+                    x:Name="OverviewItem"
+                    AutomationProperties.AutomationId="NavOverview"
+                    Content="Overview"
+                    Tag="overview">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem
                     x:Name="AppsItem"
                     AutomationProperties.AutomationId="NavApps"

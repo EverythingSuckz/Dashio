@@ -32,6 +32,7 @@ public sealed partial class AppDetailPage : Page
     {
         AppServices.State.Changed += State_Changed;
         AppServices.Pending.Changed += Pending_Changed;
+        AppServices.Monitor.Updated += Monitor_Updated;
         ViewModel.Load(e.Parameter as string ?? "");
     }
 
@@ -39,7 +40,10 @@ public sealed partial class AppDetailPage : Page
     {
         AppServices.State.Changed -= State_Changed;
         AppServices.Pending.Changed -= Pending_Changed;
+        AppServices.Monitor.Updated -= Monitor_Updated;
     }
+
+    private void Monitor_Updated(object? sender, EventArgs e) => ViewModel.UpdateUsage();
 
     private void State_Changed(object? sender, EventArgs e)
     {

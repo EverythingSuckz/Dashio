@@ -1,5 +1,6 @@
 using Dashio.Core.Attribution;
 using Dashio.Core.Changes;
+using Dashio.Core.Evidence;
 using Dashio.Core.Journal;
 using Dashio.Core.Scanning;
 
@@ -9,7 +10,10 @@ namespace Dashio.App.Services;
 public static class AppServices
 {
     public static SettingsStore Settings { get; } = SettingsStore.Load();
-    public static SystemScanner Scanner { get; } = new();
+
+    // Shared, so a file checked during the scan is not checked again for a running process.
+    public static FileEvidenceReader Evidence { get; } = new();
+    public static SystemScanner Scanner { get; } = new(Evidence);
     public static AttributionEngine Engine { get; } = new();
     public static ChangeJournal Journal { get; } = new(ChangeJournal.DefaultPath);
     public static IHelperLauncher Helper { get; } = new HelperLauncher();
@@ -19,4 +23,5 @@ public static class AppServices
     public static ScanState State { get; } = new();
     public static PendingChanges Pending { get; } = new();
     public static ShellState Shell { get; } = new();
+    public static ResourceMonitor Monitor { get; } = new(Evidence);
 }

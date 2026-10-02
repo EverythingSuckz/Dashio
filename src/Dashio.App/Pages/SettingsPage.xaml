@@ -78,6 +78,29 @@
                     Margin="0,20,0,4"
                     AutomationProperties.HeadingLevel="Level2"
                     Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="Live figures" />
+                <controls:SettingsCard Description="How often memory and processor use is measured. Nothing is measured while the window is minimised." Header="Refresh every">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE9D9;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        x:Name="RefreshBox"
+                        MinWidth="180"
+                        AutomationProperties.AutomationId="RefreshBox"
+                        AutomationProperties.Name="Refresh every"
+                        SelectionChanged="RefreshBox_SelectionChanged">
+                        <ComboBoxItem Content="1 second" Tag="1" />
+                        <ComboBoxItem Content="2 seconds" Tag="2" />
+                        <ComboBoxItem Content="5 seconds" Tag="5" />
+                        <ComboBoxItem Content="10 seconds" Tag="10" />
+                        <ComboBoxItem Content="Paused" Tag="0" />
+                    </ComboBox>
+                </controls:SettingsCard>
+
+                <TextBlock
+                    Margin="0,20,0,4"
+                    AutomationProperties.HeadingLevel="Level2"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
                     Text="Your data" />
                 <controls:SettingsCard x:Name="LogCard" Header="Change log">
                     <controls:SettingsCard.HeaderIcon>
@@ -107,7 +130,7 @@
                             HorizontalContentAlignment="Left"
                             ContentAlignment="Vertical"
                             Header="What it does">
-                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="Shows everything each app has set up to start by itself, and lets you switch those things off and back on. It only switches; it never deletes." />
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="Shows what each app is using right now and everything it has set up to start by itself, and lets you switch those things off and back on. It only switches; it never deletes." />
                         </controls:SettingsCard>
                         <controls:SettingsCard
                             HorizontalContentAlignment="Left"

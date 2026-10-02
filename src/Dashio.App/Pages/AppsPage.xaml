@@ -135,7 +135,8 @@
                     <Border
                         Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
                         Style="{StaticResource BadgeStyle}"
-                        Visibility="{x:Bind local:Ui.Visible(IsRunning)}">
+                        ToolTipService.ToolTip="{x:Bind ActivityTip, Mode=OneWay}"
+                        Visibility="{x:Bind local:Ui.Visible(IsActive), Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="4">
                             <FontIcon
                                 FontSize="12"
@@ -144,7 +145,7 @@
                             <TextBlock
                                 Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                                 Style="{StaticResource BadgeTextStyle}"
-                                Text="{x:Bind RunningText}" />
+                                Text="{x:Bind ActivityText, Mode=OneWay}" />
                         </StackPanel>
                     </Border>
                     <TextBlock
@@ -264,7 +265,8 @@
                         <Border
                             Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
                             Style="{StaticResource BadgeStyle}"
-                            Visibility="{x:Bind local:Ui.Visible(IsRunning)}">
+                            ToolTipService.ToolTip="{x:Bind ActivityTip, Mode=OneWay}"
+                            Visibility="{x:Bind local:Ui.Visible(IsActive), Mode=OneWay}">
                             <StackPanel Orientation="Horizontal" Spacing="4">
                                 <FontIcon
                                     FontSize="12"
@@ -273,20 +275,26 @@
                                 <TextBlock
                                     Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                                     Style="{StaticResource BadgeTextStyle}"
-                                    Text="{x:Bind RunningText}" />
+                                    Text="{x:Bind ActivityText, Mode=OneWay}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
 
-                    <Grid Grid.Row="3">
+                    <Grid Grid.Row="3" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                         <TextBlock
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind StartsText}"
+                            TextTrimming="CharacterEllipsis"
                             Visibility="{x:Bind local:Ui.Visible(StartsWithWindows)}" />
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind ItemsText}"
+                            TextTrimming="CharacterEllipsis"
                             Visibility="{x:Bind local:Ui.Collapsed(StartsWithWindows)}" />
                     </Grid>
                 </Grid>
@@ -499,6 +507,16 @@
                             Click="SortName_Click"
                             GroupName="Sort"
                             Text="Name" />
+                        <RadioMenuFlyoutItem
+                            AutomationProperties.AutomationId="SortByMemory"
+                            Click="SortMemory_Click"
+                            GroupName="Sort"
+                            Text="Most memory first" />
+                        <RadioMenuFlyoutItem
+                            AutomationProperties.AutomationId="SortByCpu"
+                            Click="SortCpu_Click"
+                            GroupName="Sort"
+                            Text="Most processor use first" />
                         <MenuFlyoutSeparator />
                         <ToggleMenuFlyoutItem
                             x:Name="ShowWindowsItem"
@@ -546,7 +564,7 @@
                     </ItemsRepeater>
                 </Grid>
 
-                <!-- Side panels: what starts on this PC, and how to read the list. -->
+                <!-- Side panel: how to read the list. -->
                 <StackPanel
                     x:Name="SidePanel"
                     Grid.Column="1"
@@ -555,63 +573,6 @@
                     VerticalAlignment="Top"
                     Spacing="16"
                     Visibility="Collapsed">
-                    <Border Style="{StaticResource PanelStyle}">
-                        <StackPanel>
-                            <StackPanel Padding="20,20,20,16" Spacing="4">
-                                <TextBlock
-                                    AutomationProperties.HeadingLevel="Level2"
-                                    Style="{StaticResource SubtitleTextBlockStyle}"
-                                    Text="What starts" />
-                                <TextBlock
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="The ways apps on this PC start themselves"
-                                    TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ItemsRepeater ItemsSource="{x:Bind ViewModel.Kinds, Mode=OneWay}">
-                                <ItemsRepeater.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:KindBreakdown">
-                                        <Grid AutomationProperties.Name="{x:Bind AccessibleName}" Style="{StaticResource PanelRowStyle}">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <Border Style="{StaticResource RowIconTileStyle}">
-                                                <FontIcon FontSize="20" Glyph="{x:Bind Glyph}" />
-                                            </Border>
-                                            <StackPanel
-                                                Grid.Column="1"
-                                                VerticalAlignment="Center"
-                                                Spacing="2">
-                                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind Name}" />
-                                                <TextBlock
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="{x:Bind Explanation}"
-                                                    TextWrapping="Wrap" />
-                                            </StackPanel>
-                                            <StackPanel
-                                                Grid.Column="2"
-                                                HorizontalAlignment="Right"
-                                                VerticalAlignment="Center">
-                                                <TextBlock
-                                                    HorizontalAlignment="Right"
-                                                    Style="{StaticResource BodyStrongTextBlockStyle}"
-                                                    Text="{x:Bind OnText}" />
-                                                <TextBlock
-                                                    HorizontalAlignment="Right"
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="{x:Bind TotalText}" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsRepeater.ItemTemplate>
-                            </ItemsRepeater>
-                        </StackPanel>
-                    </Border>
-
                     <!-- Each row: the term in bold, then what it means in grey. -->
                     <Border Style="{StaticResource PanelStyle}">
                         <StackPanel>

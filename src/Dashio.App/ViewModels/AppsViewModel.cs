@@ -17,12 +17,8 @@ public enum AppSort
 {
     MostAtStartup,
     Name,
-}
-
-/// <summary>One kind of autostart item with how many are on, for the "What starts" panel.</summary>
-public sealed record KindBreakdown(string Glyph, string Name, string Explanation, string OnText, string TotalText)
-{
-    public string AccessibleName => $"{Name}: {OnText}, {TotalText}";
+    Memory,
+    Cpu,
 }
 
 public sealed partial class AppsViewModel : ObservableObject
@@ -63,9 +59,6 @@ public sealed partial class AppsViewModel : ObservableObject
     [ObservableProperty]
     public partial string RunningCount { get; set; } = "–";
 
-    [ObservableProperty]
-    public partial IReadOnlyList<KindBreakdown> Kinds { get; set; } = [];
-
     /// <summary>The first scan has not finished yet.</summary>
     [ObservableProperty]
     public partial bool IsLoading { get; set; } = true;
@@ -87,9 +80,7 @@ public sealed partial class AppsViewModel : ObservableObject
             return;
 
         var search = AppServices.Shell.SearchText;
-        var shown = state.Groups
-            .Where(g => AppServices.Settings.ShowWindowsComponents || !g.IsWindows)
-            .ToList();
+        var shown = StartupStats.ShownGroups();
         var visible = shown.Where(g => Matches(g, search)).ToList();
 
         var atStartup = visible.Where(g => g.StartsWithWindowsCount > 0).ToList();
@@ -107,19 +98,10 @@ public sealed partial class AppsViewModel : ObservableObject
             : DefaultSummary;
 
         // The headline numbers describe the whole PC, so they ignore the search box.
-        AtStartupCount = shown.Count(g => g.StartsWithWindowsCount > 0).ToString();
-        HiddenCount = shown.Count(g => g.HiddenFromTaskManager).ToString();
-        RunningCount = shown.Sum(g => g.RunningCount).ToString();
-        Kinds = shown.SelectMany(g => g.Items)
-            .GroupBy(i => i.Item.Kind)
-            .OrderBy(k => k.Key)
-            .Select(k => new KindBreakdown(
-                ItemText.KindGlyph(k.Key),
-                ItemText.KindHeading(k.Key),
-                ItemText.KindExplanation(k.Key),
-                $"{k.Count(i => i.Item.Enabled)} on",
-                $"of {k.Count()}"))
-            .ToList();
+        var stats = StartupStats.Of(shown);
+        AtStartupCount = stats.AtStartup.ToString();
+        HiddenCount = stats.NotInTaskManager.ToString();
+        RunningCount = stats.RunningServices.ToString();
 
         var filtered = Filter switch
         {
@@ -129,12 +111,23 @@ public sealed partial class AppsViewModel : ObservableObject
             _ => visible,
         };
 
-        IEnumerable<AppGroup> sorted = Sort == AppSort.Name
-            ? filtered.OrderBy(Rank).ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase)
-            : filtered.OrderBy(Rank)
+        var monitor = AppServices.Monitor;
+        IEnumerable<AppGroup> sorted = Sort switch
+        {
+            AppSort.Name => filtered.OrderBy(Rank).ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
+            // Sorted once, when chosen: re-sorting on every measurement would make the rows jump about.
+            AppSort.Memory => filtered
+                .OrderByDescending(g => monitor.UsageOf(g.Id)?.MemoryBytes ?? -1)
+                .ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
+            AppSort.Cpu => filtered
+                .OrderByDescending(g => monitor.UsageOf(g.Id)?.CpuPercent ?? -1)
+                .ThenByDescending(g => monitor.UsageOf(g.Id)?.MemoryBytes ?? -1)
+                .ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
+            _ => filtered.OrderBy(Rank)
                 .ThenByDescending(g => g.StartsWithWindowsCount)
                 .ThenByDescending(g => g.RunningCount)
-                .ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase);
+                .ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
+        };
 
         Apps.Clear();
         foreach (var group in sorted)

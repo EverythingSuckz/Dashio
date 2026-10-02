@@ -111,10 +111,13 @@ public sealed partial class ScanState : ObservableObject
         var items = _items;
         var sources = _sources;
         Groups = await Task.Run(() => AppServices.Engine.Group(items, sources));
+        AppServices.Monitor.UseScan(Groups, sources);
     }
 
+    /// <summary>A group from the scan, or an app that is only known because it is running.</summary>
     public AppGroup? FindGroup(string groupId) =>
-        Groups.FirstOrDefault(g => g.Id.Equals(groupId, StringComparison.OrdinalIgnoreCase));
+        Groups.FirstOrDefault(g => g.Id.Equals(groupId, StringComparison.OrdinalIgnoreCase))
+        ?? AppServices.Monitor.FindGroup(groupId);
 
     public AppGroup? GroupOfItem(string itemId) =>
         Groups.FirstOrDefault(g => g.Items.Any(i => i.Item.Id.Equals(itemId, StringComparison.OrdinalIgnoreCase)));

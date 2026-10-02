@@ -21,6 +21,7 @@ public sealed partial class AppRowViewModel : ObservableObject
             .Select(g => new KindCount(
                 ItemText.KindGlyph(g.Key), g.Count().ToString(), ItemText.KindCount(g.Key, g.Count())))
             .ToList();
+        UpdateUsage();
         _ = LoadIconAsync();
     }
 
@@ -66,6 +67,33 @@ public sealed partial class AppRowViewModel : ObservableObject
             if (IsAdminFound)
                 parts.Add(HasHiddenTask ? "has a hidden task" : "found by the admin scan");
             return string.Join(", ", parts);
+        }
+    }
+
+    // The green badge: live figures while the app is running, otherwise how many items the scan saw running.
+    [ObservableProperty]
+    public partial bool IsActive { get; set; }
+
+    [ObservableProperty]
+    public partial string ActivityText { get; set; } = "";
+
+    [ObservableProperty]
+    public partial string ActivityTip { get; set; } = "";
+
+    /// <summary>Call after each measurement.</summary>
+    public void UpdateUsage()
+    {
+        if (AppServices.Monitor.UsageOf(Group.Id) is { } usage)
+        {
+            IsActive = true;
+            ActivityText = $"{UsageText.Memory(usage.MemoryBytes)} · {UsageText.Cpu(usage.CpuPercent)}";
+            ActivityTip = $"Running now: {UsageText.Processes(usage.Processes.Count)} using {UsageText.Memory(usage.MemoryBytes)} of memory and {UsageText.Cpu(usage.CpuPercent)} of the processor";
+        }
+        else
+        {
+            IsActive = IsRunning;
+            ActivityText = RunningText;
+            ActivityTip = $"{ItemText.Plural(RunningCount, "item")} of this app were running at the last scan";
         }
     }
 

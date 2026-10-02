@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Dashio.App.Services;
 using Dashio.Core.Models;
 using Dashio.Core.Parsing;
+using Dashio.Core.Processes;
 using Microsoft.UI.Xaml.Media;
 
 namespace Dashio.App.ViewModels;
@@ -13,9 +14,70 @@ public sealed record AboutRow(string Glyph, string Label, string Value)
     public string AccessibleName => $"{Label}: {Value}";
 }
 
+/// <summary>One process of the app, with what it is using right now.</summary>
+public sealed partial class ProcessRowViewModel : ObservableObject
+{
+    public ProcessRowViewModel(ProcessUsage process)
+    {
+        Pid = process.Pid;
+        Name = process.Name;
+        Detail = process.Services.Count == 0
+            ? $"Process {process.Pid}"
+            : $"Process {process.Pid} · runs {string.Join(", ", process.Services)}";
+        Path = process.Path ?? "";
+        Update(process);
+    }
+
+    public int Pid { get; }
+    public string Name { get; }
+    public string Detail { get; }
+    public string Path { get; }
+
+    [ObservableProperty]
+    public partial string Memory { get; set; } = "";
+
+    [ObservableProperty]
+    public partial string Cpu { get; set; } = "";
+
+    [ObservableProperty]
+    public partial string AccessibleName { get; set; } = "";
+
+    public void Update(ProcessUsage process)
+    {
+        Memory = UsageText.Memory(process.MemoryBytes);
+        Cpu = UsageText.Cpu(process.CpuPercent);
+        AccessibleName = $"{Name}, {Detail}, memory {Memory}, processor {Cpu}";
+    }
+}
+
 public sealed partial class AppDetailViewModel : ObservableObject
 {
+    /// <summary>Windows itself runs hundreds of processes; the list shows the largest.</summary>
+    private const int MaxProcesses = 25;
+
     private string _groupId = "";
+    private int _scanRunningCount;
+
+    public ObservableCollection<ProcessRowViewModel> Processes { get; } = [];
+
+    /// <summary>False until the running apps have been measured once.</summary>
+    [ObservableProperty]
+    public partial bool HasUsage { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsRunningNow { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsNotRunningNow { get; set; }
+
+    [ObservableProperty]
+    public partial string UsageSummary { get; set; } = "";
+
+    [ObservableProperty]
+    public partial string MoreProcesses { get; set; } = "";
+
+    [ObservableProperty]
+    public partial bool HasItems { get; set; }
 
     /// <summary>Section headings and item rows in one flat list, so the list can be virtualised.</summary>
     public ObservableCollection<object> Rows { get; } = [];
@@ -85,12 +147,13 @@ public sealed partial class AppDetailViewModel : ObservableObject
         Name = group.Name;
         Publisher = string.IsNullOrWhiteSpace(group.Publisher) ? "Unknown publisher" : group.Publisher;
         IsHidden = group.HiddenFromTaskManager;
-        IsRunning = group.RunningCount > 0;
-        RunningText = $"{group.RunningCount} running";
+        _scanRunningCount = group.RunningCount;
         StartsText = StartsLine(group);
         About = AboutRows(group);
         Note = NoteFor(group);
         HasNote = Note.Length > 0;
+        HasItems = group.Items.Count > 0;
+        UpdateUsage();
         _ = LoadIconAsync(group.IconPath);
 
         foreach (var kind in group.Items.GroupBy(i => i.Item.Kind).OrderBy(g => g.Key))
@@ -108,6 +171,45 @@ public sealed partial class AppDetailViewModel : ObservableObject
     }
 
     private async Task LoadIconAsync(string? path) => Icon = await AppServices.Icons.GetAsync(path);
+
+    /// <summary>Call after each measurement.</summary>
+    public void UpdateUsage()
+    {
+        var monitor = AppServices.Monitor;
+        HasUsage = monitor.Latest is { Apps.Count: > 0 };
+        var usage = monitor.UsageOf(_groupId);
+        IsRunningNow = usage is not null;
+        IsNotRunningNow = HasUsage && usage is null;
+
+        var shown = usage?.Processes.Take(MaxProcesses).ToList() ?? [];
+        for (var i = 0; i < shown.Count; i++)
+        {
+            if (i < Processes.Count && Processes[i].Pid == shown[i].Pid)
+                Processes[i].Update(shown[i]);
+            else if (i < Processes.Count)
+                Processes[i] = new ProcessRowViewModel(shown[i]);
+            else
+                Processes.Add(new ProcessRowViewModel(shown[i]));
+        }
+        while (Processes.Count > shown.Count)
+            Processes.RemoveAt(Processes.Count - 1);
+
+        if (usage is null)
+        {
+            UsageSummary = "";
+            MoreProcesses = "";
+            // Before the first measurement, fall back to what the scan saw.
+            IsRunning = !HasUsage && _scanRunningCount > 0;
+            RunningText = $"{_scanRunningCount} running";
+            return;
+        }
+        UsageSummary = $"{UsageText.Processes(usage.Processes.Count)} · {UsageText.Memory(usage.MemoryBytes)} · {UsageText.Cpu(usage.CpuPercent)}";
+        IsRunning = true;
+        RunningText = $"Running · {UsageText.Memory(usage.MemoryBytes)} · {UsageText.Cpu(usage.CpuPercent)}";
+        MoreProcesses = usage.Processes.Count > MaxProcesses
+            ? $"Showing the {MaxProcesses} that use the most memory, of {usage.Processes.Count}."
+            : "";
+    }
 
     /// <summary>Call when the queued changes change, so switches and the button follow.</summary>
     public void RefreshPending()
@@ -152,7 +254,7 @@ public sealed partial class AppDetailViewModel : ObservableObject
         {
             new("\uE8FD", "Items", group.Items.Count.ToString()),
             new("\uE7E8", "Start with Windows", group.StartsWithWindowsCount.ToString()),
-            new("\uE768", "Running now", group.RunningCount.ToString()),
+            new("\uE768", "Items running at the last scan", group.RunningCount.ToString()),
         };
 
         // Installers often register the same app twice (32- and 64-bit, or with and without "®").
@@ -174,6 +276,7 @@ public sealed partial class AppDetailViewModel : ObservableObject
             { IsWindows: true } => "Signed as part of Windows",
             { IsUnmatched: true } => "Not matched to any app",
             { IsVendorBucket: true } => "By the maker only",
+            { Items.Count: 0 } => "By the file it runs from",
             { Confidence: Confidence.High } => "By where its files are installed",
             { Confidence: Confidence.Medium } => "By the folder its files share",
             _ => "Partly by name; expand an item to check",
@@ -189,6 +292,8 @@ public sealed partial class AppDetailViewModel : ObservableObject
             return "Dashio could not tell which app these belong to. Expand an item to see what it runs.";
         if (group.IsVendorBucket)
             return "The maker of these items is known, but not which of its products they belong to.";
+        if (group.Items.Count == 0)
+            return "This app has not set anything to start by itself. It is listed because it is running.";
         return "";
     }
 }

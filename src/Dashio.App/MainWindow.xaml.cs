@@ -45,8 +45,23 @@ public sealed partial class MainWindow : Window
         NavFrame.Navigated += NavFrame_Navigated;
         NavFrame.SizeChanged += (_, e) => Ui.FitToPage(BannerPanel, e.NewSize.Width);
 
-        NavView.SelectedItem = AppsItem;
+        AppServices.Monitor.Start(DispatcherQueue);
+        VisibilityChanged += (_, e) => UpdateMonitorVisibility(e.Visible);
+        AppWindow.Changed += (_, _) =>
+        {
+            // Minimising is reported in different ways on different builds, so any change is checked.
+            UpdateMonitorVisibility(AppWindow.IsVisible);
+        };
+
+        NavView.SelectedItem = OverviewItem;
         _ = AppServices.State.RefreshAsync();
+    }
+
+    /// <summary>Nothing is measured while the window is hidden or minimised.</summary>
+    private void UpdateMonitorVisibility(bool visible)
+    {
+        var minimised = AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized };
+        AppServices.Monitor.SetVisible(visible && !minimised);
     }
 
     [DllImport("user32.dll")]
@@ -80,26 +95,34 @@ public sealed partial class MainWindow : Window
 
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        var page = args.IsSettingsSelected
-            ? typeof(SettingsPage)
-            : (args.SelectedItem as NavigationViewItem)?.Tag switch
-            {
-                "apps" => typeof(AppsPage),
-                "items" => typeof(AllItemsPage),
-                "history" => typeof(HistoryPage),
-                _ => null,
-            };
+        var page = args.IsSettingsSelected ? typeof(SettingsPage) : PageOf(args.SelectedItem);
         // The frame's own navigation also moves the selection; that must not navigate again.
         if (_syncingSelection || page is null || NavFrame.CurrentSourcePageType == page)
             return;
         NavigateTop(page);
     }
 
-    /// <summary>An app's detail keeps "Apps" selected, so pressing Apps there has to be handled as a click.</summary>
+    private static Type? PageOf(object? item) => (item as NavigationViewItem)?.Tag switch
+    {
+        "overview" => typeof(OverviewPage),
+        "apps" => typeof(AppsPage),
+        "items" => typeof(AllItemsPage),
+        "history" => typeof(HistoryPage),
+        _ => null,
+    };
+
+    /// <summary>
+    /// An app's page keeps the item it was opened from selected, so pressing that item again
+    /// changes no selection and has to be handled as a click.
+    /// </summary>
     private void NavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
-        if (args.InvokedItemContainer == AppsItem && NavFrame.CurrentSourcePageType == typeof(AppDetailPage))
-            NavigateTop(typeof(AppsPage));
+        if (NavFrame.CurrentSourcePageType == typeof(AppDetailPage) &&
+            args.InvokedItemContainer == NavView.SelectedItem as NavigationViewItem &&
+            PageOf(args.InvokedItemContainer) is { } page)
+        {
+            NavigateTop(page);
+        }
     }
 
     private void NavigateTop(Type page)
@@ -116,12 +139,15 @@ public sealed partial class MainWindow : Window
         {
             if (page == typeof(SettingsPage))
                 NavView.SelectedItem = NavView.SettingsItem;
+            else if (page == typeof(OverviewPage))
+                NavView.SelectedItem = OverviewItem;
             else if (page == typeof(AllItemsPage))
                 NavView.SelectedItem = AllItemsItem;
             else if (page == typeof(HistoryPage))
                 NavView.SelectedItem = HistoryItem;
-            else
+            else if (page == typeof(AppsPage))
                 NavView.SelectedItem = AppsItem;
+            // An app's page leaves the selection where it was: on the page it was opened from.
         }
         finally
         {
@@ -131,8 +157,8 @@ public sealed partial class MainWindow : Window
 
     private void Home_Click(object sender, RoutedEventArgs e)
     {
-        if (NavFrame.CurrentSourcePageType != typeof(AppsPage))
-            NavigateTop(typeof(AppsPage));
+        if (NavFrame.CurrentSourcePageType != typeof(OverviewPage))
+            NavigateTop(typeof(OverviewPage));
     }
 
     private void TitleBar_PaneToggleRequested(TitleBar sender, object args) => NavView.IsPaneOpen = !NavView.IsPaneOpen;

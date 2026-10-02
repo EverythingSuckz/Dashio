@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Navigation;
 
 namespace Dashio.App.Pages;
 
@@ -32,6 +33,12 @@ public sealed partial class AppsPage : Page
             ViewModel.Rebuild();
         };
 
+        AppServices.Monitor.Updated += (_, _) =>
+        {
+            foreach (var row in ViewModel.Apps)
+                row.UpdateUsage();
+        };
+
         ShowWindowsItem.IsChecked = AppServices.Settings.ShowWindowsComponents;
         ViewModel.Rebuild();
         ApplyViewMode();
@@ -41,6 +48,39 @@ public sealed partial class AppsPage : Page
             Ui.FitToPage(Shell, e.NewSize.Width);
             ApplyLayout(e.NewSize.Width);
         };
+    }
+
+    /// <summary>Overview's tiles open this page on a particular tab.</summary>
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        if (e.Parameter is not AppFilter filter || e.NavigationMode != NavigationMode.New)
+            return;
+
+        // The tab bar ignores a selection made before it has been laid out, so this waits its turn.
+        void Select() => DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            var tab = filter switch
+            {
+                AppFilter.AtStartup => FilterAtStartup,
+                AppFilter.NotInTaskManager => FilterNotInTaskManager,
+                _ => FilterAll,
+            };
+            tab.IsSelected = true;
+            FilterBar.SelectedItem = tab;
+        });
+
+        if (FilterBar.IsLoaded)
+        {
+            Select();
+            return;
+        }
+
+        void OnLoaded(object sender, RoutedEventArgs args)
+        {
+            FilterBar.Loaded -= OnLoaded;
+            Select();
+        }
+        FilterBar.Loaded += OnLoaded;
     }
 
     /// <summary>Side panels on wide pages; headline numbers beside the title, under it, or stacked.</summary>
@@ -114,6 +154,10 @@ public sealed partial class AppsPage : Page
     private void SortMostAtStartup_Click(object sender, RoutedEventArgs e) => SetSort(AppSort.MostAtStartup);
 
     private void SortName_Click(object sender, RoutedEventArgs e) => SetSort(AppSort.Name);
+
+    private void SortMemory_Click(object sender, RoutedEventArgs e) => SetSort(AppSort.Memory);
+
+    private void SortCpu_Click(object sender, RoutedEventArgs e) => SetSort(AppSort.Cpu);
 
     private void SetSort(AppSort sort)
     {

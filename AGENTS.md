@@ -1,7 +1,8 @@
 # Dashio
 
-A Windows 11 app that groups everything each app starts by itself (services, scheduled tasks,
-startup entries) and lets the user switch those items off and on. See `README.md` for the
+A Windows 11 dashboard that shows what each app is using right now and groups everything each app
+starts by itself (services, scheduled tasks, startup entries), and lets the user switch those
+items off and on. See `README.md` for the
 user-facing description.
 
 ## Commands
@@ -49,6 +50,12 @@ and built-in COM interop, and the helper shares the app's runtime files. Sort th
 - `Dashio.Core/Attribution/AttributionEngine` is pure (no I/O). New matching behaviour gets a
   test in `AttributionEngineTests` built from hand-written items, plus a look at the live report
   (`--filter "FullyQualifiedName~LiveReport.Groups"`). A wrong merge is worse than a missed one.
+- `Dashio.Core/Processes` measures what is running. `ProcessSampler` reads every process in one
+  call without opening any of them, so it needs no admin rights. `ProcessAttributor` is pure and
+  places a process in a group from the scan or in a group of its own; check changes against
+  `--filter "FullyQualifiedName~LiveProcessReport"`. It must never change which group an item is in.
+- `ResourceMonitor` (app) runs the measuring loop off the UI thread and raises `Updated` on it.
+  Pages update rows in place on each tick; they do not rebuild or re-sort lists, so rows do not jump.
 - `Dashio.App` uses `x:Bind` with explicit modes, `CommunityToolkit.Mvvm` partial properties,
   and code-behind only for navigation, dialogs and event wiring.
 

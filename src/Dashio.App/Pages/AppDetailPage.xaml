@@ -344,12 +344,12 @@
 
                 <StackPanel VerticalAlignment="Top">
                     <!-- Who this is -->
-                    <Border Padding="24" Style="{StaticResource PanelStyle}">
-                        <Grid ColumnSpacing="20">
+                    <Border Style="{StaticResource PanelStyle}">
+                        <StackPanel>
+                        <Grid Padding="24" ColumnSpacing="20">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Grid
                                 Width="56"
@@ -423,10 +423,17 @@
                                     </Border>
                                 </StackPanel>
                             </StackPanel>
+                        </Grid>
+
+                        <!-- What can be done with the app. More actions will join this row. -->
+                        <Border
+                            Padding="24,12,24,12"
+                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            BorderThickness="0,1,0,0"
+                            Visibility="{x:Bind local:Ui.Visible(ViewModel.HasItems), Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button
                                 x:Name="TurnAllButton"
-                                Grid.Column="2"
-                                VerticalAlignment="Top"
                                 AutomationProperties.AutomationId="TurnAllButton"
                                 AutomationProperties.Name="{x:Bind ViewModel.TurnAllLabel, Mode=OneWay}"
                                 Click="TurnAll_Click"
@@ -437,7 +444,9 @@
                                     <TextBlock Text="{x:Bind ViewModel.TurnAllLabel, Mode=OneWay}" />
                                 </StackPanel>
                             </Button>
-                        </Grid>
+                            </StackPanel>
+                        </Border>
+                        </StackPanel>
                     </Border>
 
                     <InfoBar
@@ -452,6 +461,119 @@
                             <StackLayout Spacing="4" />
                         </ItemsRepeater.Layout>
                     </ItemsRepeater>
+
+                    <!-- What the app is running at this moment, updated live. -->
+                    <StackPanel Visibility="{x:Bind local:Ui.Visible(ViewModel.HasUsage), Mode=OneWay}">
+                        <Grid Margin="0,24,0,8" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon
+                                VerticalAlignment="Top"
+                                FontSize="20"
+                                Glyph="&#xE9D9;" />
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock
+                                        AutomationProperties.HeadingLevel="Level2"
+                                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                                        Text="Running now" />
+                                    <Border
+                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        Style="{StaticResource BadgeStyle}"
+                                        Visibility="{x:Bind local:Ui.Visible(ViewModel.IsRunningNow), Mode=OneWay}">
+                                        <TextBlock
+                                            AutomationProperties.AutomationId="DetailUsage"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource BadgeTextStyle}"
+                                            Text="{x:Bind ViewModel.UsageSummary, Mode=OneWay}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="The programs of this app that are running, with the memory and processor each is using."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Style="{StaticResource PanelStyle}" Visibility="{x:Bind local:Ui.Visible(ViewModel.IsRunningNow), Mode=OneWay}">
+                            <StackPanel>
+                                <Grid Padding="20,12,20,12" ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="96" />
+                                        <ColumnDefinition Width="80" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="Program" />
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="Memory"
+                                        TextAlignment="Right" />
+                                    <TextBlock
+                                        Grid.Column="2"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="Processor"
+                                        TextAlignment="Right" />
+                                </Grid>
+                                <ItemsRepeater ItemsSource="{x:Bind ViewModel.Processes}">
+                                    <ItemsRepeater.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ProcessRowViewModel">
+                                            <Grid
+                                                Padding="20,10,20,10"
+                                                AutomationProperties.Name="{x:Bind AccessibleName, Mode=OneWay}"
+                                                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                                BorderThickness="0,1,0,0"
+                                                ColumnSpacing="16"
+                                                ToolTipService.ToolTip="{x:Bind Path}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="96" />
+                                                    <ColumnDefinition Width="80" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                                        Text="{x:Bind Detail}"
+                                                        TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                                <TextBlock
+                                                    Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    Text="{x:Bind Memory, Mode=OneWay}"
+                                                    TextAlignment="Right" />
+                                                <TextBlock
+                                                    Grid.Column="2"
+                                                    VerticalAlignment="Center"
+                                                    Text="{x:Bind Cpu, Mode=OneWay}"
+                                                    TextAlignment="Right" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsRepeater.ItemTemplate>
+                                </ItemsRepeater>
+                                <TextBlock
+                                    Padding="20,12,20,12"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.MoreProcesses, Mode=OneWay}"
+                                    Visibility="{x:Bind local:Ui.VisibleIfText(ViewModel.MoreProcesses), Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
+                        <TextBlock
+                            Margin="32,0,0,0"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="Nothing of this app is running at the moment."
+                            Visibility="{x:Bind local:Ui.Visible(ViewModel.IsNotRunningNow), Mode=OneWay}" />
+                    </StackPanel>
 
                     <!-- What Windows knows about this app, under the items when there is no room beside them. -->
                     <Border

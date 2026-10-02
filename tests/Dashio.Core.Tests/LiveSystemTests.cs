@@ -104,7 +104,9 @@ public class LiveSystemTests(LiveSnapshotFixture live, ITestOutputHelper output)
         output.WriteLine($"{killer.Name} ({killer.Publisher}): {killer.Items.Count} items, sources: {string.Join(", ", killer.Sources.Select(s => s.Name))}");
         Assert.True(killer.Items.Count(i => i.Item.Kind == AutostartKind.Service) >= 5);
         Assert.Contains(killer.Sources, s => s.Kind == AppSourceKind.StorePackage);
-        Assert.True(killer.HiddenFromTaskManager);
+        // Once its services are switched off, nothing starts with Windows and there is nothing hidden.
+        if (killer.StartsWithWindowsCount > 0)
+            Assert.True(killer.HiddenFromTaskManager);
     }
 
     [Fact]

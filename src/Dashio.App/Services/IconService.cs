@@ -1,3 +1,4 @@
+using Dashio.Core.Attribution;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage;
@@ -47,6 +48,9 @@ public sealed class IconService
     {
         try
         {
+            if (path.Equals(AttributionEngine.WindowsIconPath, StringComparison.OrdinalIgnoreCase))
+                return new BitmapImage(new Uri("ms-appx:///Assets/WindowsLogo.png"));
+
             if (ImageExtensions.Contains(Path.GetExtension(path)))
             {
                 var image = ResolveScaledAsset(path);

@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 
 namespace Dashio.App;
 
@@ -22,4 +23,27 @@ public static class Ui
     /// </summary>
     public static void FitToPage(FrameworkElement content, double pageWidth) =>
         content.Width = Math.Min(pageWidth, ShellMaxWidth);
+
+    /// <summary>Lays a grid's children out side by side in equal columns, or stacked when there is no room.</summary>
+    public static void Flow(Grid grid, bool sideBySide)
+    {
+        var count = grid.Children.Count;
+        if (grid.Tag is bool current && current == sideBySide && grid.ColumnDefinitions.Count > 0)
+            return;
+        grid.Tag = sideBySide;
+
+        grid.ColumnDefinitions.Clear();
+        grid.RowDefinitions.Clear();
+        for (var i = 0; i < (sideBySide ? count : 1); i++)
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        for (var i = 0; i < (sideBySide ? 1 : count); i++)
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        for (var i = 0; i < count; i++)
+        {
+            var child = (FrameworkElement)grid.Children[i];
+            Grid.SetColumn(child, sideBySide ? i : 0);
+            Grid.SetRow(child, sideBySide ? 0 : i);
+        }
+    }
 }

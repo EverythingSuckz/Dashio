@@ -13,6 +13,9 @@ public sealed class AttributionEngine
     public const string WindowsGroupId = "windows";
     public const string UnmatchedGroupId = "unmatched";
 
+    /// <summary>Stands for Windows itself. The app shows its own Windows logo for this path.</summary>
+    public static readonly string WindowsIconPath = Path.Combine(Environment.SystemDirectory, "msinfo32.exe");
+
     public const string RuleWindows = "Windows";
     public const string RuleStorePackage = "StorePackage";
     public const string RuleInstalledAppFolder = "InstalledAppFolder";
@@ -181,22 +184,12 @@ public sealed class AttributionEngine
             }
 
             // Rule 4: vendor/product folder.
-            var companyKey = _overrides.PublisherKey(company);
-            bool IsVendor(string folder)
-            {
-                var folderKey = _overrides.PublisherKey(folder);
-                if (folderKey.Length == 0)
-                    return false;
-                return knownVendors.Contains(folderKey) ||
-                       (companyKey.Length > 0 && NameTokens.PublishersCompatible(folderKey, companyKey));
-            }
-
-            if (FolderKey.For(path, IsVendor) is { } folder)
+            if (ProductFolders.For(path, company, knownVendors, _overrides) is { } folder)
             {
                 var key = $"dir:{folder.Key}";
                 if (!nodes.TryGetValue(key, out var node))
                 {
-                    node = NewNode(nodes, key, NodeKind.Folder, FolderDisplayName(folder), 4);
+                    node = NewNode(nodes, key, NodeKind.Folder, ProductFolders.DisplayName(folder), 4);
                     node.Publisher = folder.Vendor;
                     node.FolderName = folder.Name;
                 }
@@ -234,17 +227,6 @@ public sealed class AttributionEngine
 
         unmatched.Items.Add(new AttributedItem(
             item, RuleNone, "Nothing identifies the app this belongs to", Confidence.Low));
-    }
-
-    private static string FolderDisplayName(FolderKey folder)
-    {
-        var name = NameTokens.CleanDisplayName(folder.Name);
-        if (folder.Vendor is null)
-            return name;
-        var vendorWord = NameTokens.Words(folder.Vendor).FirstOrDefault();
-        return vendorWord is not null && NameTokens.Words(name).Contains(vendorWord)
-            ? name
-            : $"{folder.Vendor} {name}";
     }
 
     /// <summary>Fills in what is only known once all items are placed: publisher, driver package name, tokens.</summary>
@@ -494,7 +476,7 @@ public sealed class AttributionEngine
                 Items = items,
                 Sources = sources,
                 Confidence = items.Min(i => i.Confidence),
-                IconPath = Icon(sources, items),
+                IconPath = kind == NodeKind.Windows ? WindowsIconPath : Icon(sources, items),
                 IsWindows = kind == NodeKind.Windows,
                 IsUnmatched = kind == NodeKind.Unmatched,
                 IsVendorBucket = kind == NodeKind.Vendor,

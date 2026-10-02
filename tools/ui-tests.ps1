@@ -121,8 +121,50 @@ try {
     $windows = winapp ui list-windows -a $AppPid --json 2>$null | ConvertFrom-Json
     $hwnd = ($windows | Where-Object { $_.title -eq 'Dashio' } | Select-Object -First 1).hwnd
 
+    # ─── Overview: live figures ───
+    Test-UI 'The app opens on Overview' { winapp ui wait-for 'OverviewTitle' -a $AppPid -w $hwnd -t 5000 }
+    Test-UI 'Overview shows memory and processor use' {
+        winapp ui wait-for 'OverviewMemory' -a $AppPid -w $hwnd --value 'B' --contains -t 10000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'No memory figure appeared.' }
+        winapp ui wait-for 'OverviewCpu' -a $AppPid -w $hwnd --value '%' --contains -t 10000
+    }
+    Test-UI 'Overview lists the apps using the most memory' {
+        # The lists fill in once the first scan has matched processes to apps.
+        $deadline = (Get-Date).AddSeconds(60)
+        do {
+            Start-Sleep -Milliseconds 1000
+            $found = winapp ui search 'processes' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
+            $script:usageRows = @($found.matches | Where-Object { $_.type -eq 'Button' })
+        } while ($script:usageRows.Count -lt 3 -and (Get-Date) -lt $deadline)
+        if ($script:usageRows.Count -lt 3) { throw "Only $($script:usageRows.Count) apps were listed." }
+        $global:LASTEXITCODE = 0
+    }
+    Save-Shot '00-overview'
+    Test-UI 'An app opened from Overview shows what it is running' {
+        # A row's name carries its live figure, so a row found a moment ago may already read differently.
+        foreach ($attempt in 1..4) {
+            $found = winapp ui search 'processes' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
+            $row = $found.matches | Where-Object { $_.type -eq 'Button' -and $_.name -notmatch '^Windows,' } | Select-Object -First 1
+            winapp ui invoke $row.selector -a $AppPid -w $hwnd 2>$null | Out-Null
+            winapp ui wait-for 'DetailUsage' -a $AppPid -w $hwnd --value 'process' --contains -t 3000 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) { break }
+        }
+        if ($LASTEXITCODE -ne 0) { throw 'The app page did not show a running summary.' }
+    }
+    Save-Shot '00-running-now'
+    Test-UI 'A startup tile opens the Apps page' {
+        winapp ui invoke 'NavOverview' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'TileAtStartup' -a $AppPid -w $hwnd -t 5000 | Out-Null
+        winapp ui invoke 'TileAtStartup' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'AppsSummary' -a $AppPid -w $hwnd -t 5000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'The Apps page did not open.' }
+        # Back to the full list for the tests below.
+        winapp ui invoke 'FilterAll' -a $AppPid -w $hwnd
+    }
+
     # ─── First scan and shell ───
     Test-UI 'First scan finishes with a summary' {
+        winapp ui invoke 'NavApps' -a $AppPid -w $hwnd | Out-Null
         # The scanning message is on screen from the start and goes when the first scan is done.
         winapp ui wait-for 'ScanStatus' -a $AppPid -w $hwnd --gone -t 60000 | Out-Null
         winapp ui wait-for 'AppsSummary' -a $AppPid -w $hwnd --value 'page per app' --contains -t 5000
@@ -255,6 +297,9 @@ try {
         winapp ui wait-for 'ThemeBox' -a $AppPid -w $hwnd --value 'Use Windows setting' -t 5000
     }
     Test-UI 'Settings has the admin scan' { winapp ui wait-for 'AdminScanButton' -a $AppPid -w $hwnd -t 3000 }
+    Test-UI 'Settings has the refresh interval' {
+        winapp ui wait-for 'RefreshBox' -a $AppPid -w $hwnd --value '2 seconds' -t 3000
+    }
     foreach ($theme in 'Light', 'Dark') {
         Test-UI "Theme can be set to $theme" {
             winapp ui invoke 'ThemeBox' -a $AppPid -w $hwnd | Out-Null
@@ -274,9 +319,9 @@ try {
     Save-Shot '08-settings'
 
     # ─── Home ───
-    Test-UI 'Pressing the app name goes back to Apps' {
+    Test-UI 'Pressing the app name goes back to Overview' {
         winapp ui invoke 'HomeButton' -a $AppPid -w $hwnd | Out-Null
-        winapp ui wait-for 'AppsSummary' -a $AppPid -w $hwnd --value 'page per app' --contains -t 5000
+        winapp ui wait-for 'OverviewTitle' -a $AppPid -w $hwnd -t 5000
     }
 }
 finally {

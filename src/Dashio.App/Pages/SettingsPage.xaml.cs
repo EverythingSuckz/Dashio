@@ -24,6 +24,7 @@ public sealed partial class SettingsPage : Page
             _ => 0,
         };
         ShowWindowsSwitch.IsOn = settings.ShowWindowsComponents;
+        RefreshBox.SelectedIndex = Math.Max(0, Array.IndexOf(SettingsStore.RefreshChoices, settings.RefreshSeconds));
         LogCard.Description = ChangeJournal.DefaultPath;
 
         var version = Assembly.GetExecutingAssembly().GetName().Version;
@@ -38,6 +39,15 @@ public sealed partial class SettingsPage : Page
         var tag = (ThemeBox.SelectedItem as ComboBoxItem)?.Tag as string;
         AppServices.Settings.Theme = Enum.TryParse<ElementTheme>(tag, out var theme) ? theme : ElementTheme.Default;
         AppServices.Settings.Save();
+    }
+
+    private void RefreshBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || !int.TryParse((RefreshBox.SelectedItem as ComboBoxItem)?.Tag as string, out var seconds))
+            return;
+        AppServices.Settings.RefreshSeconds = seconds;
+        AppServices.Settings.Save();
+        AppServices.Monitor.RefreshNow();
     }
 
     private void ShowWindows_Toggled(object sender, RoutedEventArgs e)
