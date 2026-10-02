@@ -9,7 +9,11 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid x:Name="RootGrid" KeyboardAcceleratorPlacementMode="Hidden">
+    <!-- The app only uses theme colours, so high contrast needs no automatic boxes drawn behind text. -->
+    <Grid
+        x:Name="RootGrid"
+        HighContrastAdjustment="None"
+        KeyboardAcceleratorPlacementMode="Hidden">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
