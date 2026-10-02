@@ -20,6 +20,8 @@
     -->
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Without this, publishing leaves out the compiled XAML and the app crashes on start. It does not package the app. -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
 
@@ -52,6 +54,11 @@
       <HelperFiles Include="$(HelperOutputFolder)Dashio.Helper.*" />
     </ItemGroup>
     <Copy SourceFiles="@(HelperFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Publishing collects files by its own rules and would leave the helper behind. -->
+  <Target Name="CopyHelperToPublish" AfterTargets="Publish" DependsOnTargets="BuildAndCopyHelper">
+    <Copy SourceFiles="@(HelperFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>
