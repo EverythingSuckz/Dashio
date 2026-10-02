@@ -77,6 +77,50 @@ public static class ChangeRunner
         }
     }
 
+    /// <summary>Ends processes, then refreshes what is shown and says what happened.</summary>
+    public static async Task<EndOutcome?> EndAsync(PlannedEnd end)
+    {
+        if (IsBusy)
+            return null;
+
+        Notice? notice = null;
+        IsBusy = true;
+        BusyChanged?.Invoke(null, true);
+        try
+        {
+            var outcome = await AppServices.Ends.EndAsync(end);
+
+            // Stopped services are read back from Windows, so their rows show the real state.
+            var current = await Task.Run(() => AppServices.Scanner.Find(outcome.ServiceIds));
+            await AppServices.State.ReplaceItemsAsync(current.Values);
+            AppServices.Monitor.RefreshNow();
+
+            notice = outcome.Result switch
+            {
+                JournalResult.Applied => new Notice(InfoBarSeverity.Success, $"Ended {end.ItemName}", outcome.Error ?? ""),
+                JournalResult.Cancelled => new Notice(
+                    InfoBarSeverity.Informational, "Nothing was ended", "You cancelled the administrator prompt."),
+                _ => new Notice(
+                    outcome.Ended > 0 ? InfoBarSeverity.Warning : InfoBarSeverity.Error,
+                    $"{end.ItemName} could not be ended{(outcome.Ended > 0 ? " completely" : "")}",
+                    outcome.Error ?? ""),
+            };
+            return outcome;
+        }
+        catch (Exception e)
+        {
+            notice = new Notice(InfoBarSeverity.Error, $"{end.ItemName} could not be ended", e.Message);
+            return null;
+        }
+        finally
+        {
+            IsBusy = false;
+            BusyChanged?.Invoke(null, false);
+            if (notice is not null)
+                AppServices.Shell.Notify(notice);
+        }
+    }
+
     private static Notice Describe(BatchOutcome outcome)
     {
         var total = outcome.Outcomes.Count;

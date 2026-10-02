@@ -254,6 +254,14 @@
                 </controls:SettingsExpander.Description>
 
                 <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Button
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="{x:Bind StopName}"
+                        Click="StopItem_Click"
+                        Content="Stop"
+                        Tag="{x:Bind}"
+                        ToolTipService.ToolTip="Stops this service now. Its start setting stays as it is, so it starts again as before."
+                        Visibility="{x:Bind local:Ui.Visible(CanStopNow)}" />
                     <FontIcon
                         VerticalAlignment="Center"
                         AutomationProperties.Name="Needs administrator permission to change"
@@ -425,12 +433,12 @@
                             </StackPanel>
                         </Grid>
 
-                        <!-- What can be done with the app. More actions will join this row. -->
+                        <!-- What can be done with the app. -->
                         <Border
                             Padding="24,12,24,12"
                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                             BorderThickness="0,1,0,0"
-                            Visibility="{x:Bind local:Ui.Visible(ViewModel.HasItems), Mode=OneWay}">
+                            Visibility="{x:Bind local:Ui.Visible(ViewModel.HasActions), Mode=OneWay}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button
                                 x:Name="TurnAllButton"
@@ -438,10 +446,33 @@
                                 AutomationProperties.Name="{x:Bind ViewModel.TurnAllLabel, Mode=OneWay}"
                                 Click="TurnAll_Click"
                                 IsEnabled="{x:Bind ViewModel.CanTurnAll, Mode=OneWay}"
-                                ToolTipService.ToolTip="{x:Bind ViewModel.TurnAllTip, Mode=OneWay}">
+                                ToolTipService.ToolTip="{x:Bind ViewModel.TurnAllTip, Mode=OneWay}"
+                                Visibility="{x:Bind local:Ui.Visible(ViewModel.HasItems), Mode=OneWay}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon FontSize="14" Glyph="{x:Bind ViewModel.TurnAllGlyph, Mode=OneWay}" />
                                     <TextBlock Text="{x:Bind ViewModel.TurnAllLabel, Mode=OneWay}" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                AutomationProperties.AutomationId="EndAppButton"
+                                AutomationProperties.Name="End app"
+                                Click="EndApp_Click"
+                                ToolTipService.ToolTip="Closes everything this app is running. Anything unsaved in it is lost."
+                                Visibility="{x:Bind local:Ui.Visible(ViewModel.CanEndApp), Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="14" Glyph="&#xE711;" />
+                                    <TextBlock Text="End app" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                AutomationProperties.AutomationId="ShowLocationButton"
+                                AutomationProperties.Name="Show in File Explorer"
+                                Click="ShowLocation_Click"
+                                ToolTipService.ToolTip="Opens the folder this app runs from"
+                                Visibility="{x:Bind local:Ui.Visible(ViewModel.HasLocation), Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="14" Glyph="&#xE838;" />
+                                    <TextBlock Text="Show in File Explorer" />
                                 </StackPanel>
                             </Button>
                             </StackPanel>
@@ -505,6 +536,7 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="96" />
                                         <ColumnDefinition Width="80" />
+                                        <ColumnDefinition Width="76" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -537,6 +569,7 @@
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="96" />
                                                     <ColumnDefinition Width="80" />
+                                                    <ColumnDefinition Width="76" />
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel Spacing="2">
                                                     <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
@@ -556,6 +589,32 @@
                                                     VerticalAlignment="Center"
                                                     Text="{x:Bind Cpu, Mode=OneWay}"
                                                     TextAlignment="Right" />
+                                                <StackPanel
+                                                    Grid.Column="3"
+                                                    Margin="0,-6,-8,-6"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center"
+                                                    Orientation="Horizontal"
+                                                    Spacing="4">
+                                                    <Button
+                                                        AutomationProperties.Name="{x:Bind RevealName}"
+                                                        Click="RevealProcess_Click"
+                                                        Style="{StaticResource RowActionButtonStyle}"
+                                                        Tag="{x:Bind}"
+                                                        ToolTipService.ToolTip="Show in File Explorer"
+                                                        Visibility="{x:Bind local:Ui.Visible(HasPath)}">
+                                                        <FontIcon FontSize="14" Glyph="&#xE838;" />
+                                                    </Button>
+                                                    <Button
+                                                        AutomationProperties.Name="{x:Bind EndName}"
+                                                        Click="EndProcess_Click"
+                                                        Style="{StaticResource RowActionButtonStyle}"
+                                                        Tag="{x:Bind}"
+                                                        ToolTipService.ToolTip="End this process"
+                                                        Visibility="{x:Bind local:Ui.Visible(CanEnd)}">
+                                                        <FontIcon FontSize="14" Glyph="&#xE711;" />
+                                                    </Button>
+                                                </StackPanel>
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsRepeater.ItemTemplate>

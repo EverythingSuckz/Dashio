@@ -208,10 +208,21 @@ public sealed partial class AppsPage : Page
         }
 
         _menuRow = row;
-        foreach (var item in menu.Items.OfType<MenuFlyoutItem>().Where(i => i.Tag is "toggle"))
+        foreach (var item in menu.Items.OfType<MenuFlyoutItem>())
         {
-            item.Text = row.ToggleAllLabel;
-            item.IsEnabled = row.CanToggleAll;
+            switch (item.Tag)
+            {
+                case "toggle":
+                    item.Text = row.ToggleAllLabel;
+                    item.IsEnabled = row.CanToggleAll;
+                    break;
+                case "end":
+                    item.IsEnabled = RunningActions.CanEnd(AppServices.Monitor.UsageOf(row.Group.Id));
+                    break;
+                case "file":
+                    item.IsEnabled = RunningActions.LocationOf(row.Group.Id) is not null;
+                    break;
+            }
         }
 
         if (args.TryGetPosition(element, out var point))
@@ -231,6 +242,18 @@ public sealed partial class AppsPage : Page
     {
         if (_menuRow is { } row)
             ItemActions.ToggleAll(row.Group);
+    }
+
+    private async void AppEnd_Click(object sender, RoutedEventArgs e)
+    {
+        if (_menuRow is { } row)
+            await RunningActions.EndAppAsync(this, row.Group.Id);
+    }
+
+    private void AppReveal_Click(object sender, RoutedEventArgs e)
+    {
+        if (_menuRow is { } row)
+            ItemActions.Reveal(RunningActions.LocationOf(row.Group.Id));
     }
 
     private void AppCopyName_Click(object sender, RoutedEventArgs e) => ItemActions.Copy(_menuRow?.Name);

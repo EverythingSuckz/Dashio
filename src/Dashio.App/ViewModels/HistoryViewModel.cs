@@ -37,12 +37,12 @@ public sealed class HistoryRow
     public HistoryRow(JournalEntry entry, IReadOnlyList<JournalEntry> journal)
     {
         Entry = entry;
-        var verb = entry.Action == ChangeAction.Disable ? "off" : "on";
+        var verb = ItemText.Verb(entry.Action);
         Title = entry.Result switch
         {
-            JournalResult.Applied => $"Turned {verb} {entry.ItemName}",
-            JournalResult.Cancelled => $"Did not turn {verb} {entry.ItemName}",
-            _ => $"Could not turn {verb} {entry.ItemName}",
+            JournalResult.Applied => $"{ItemText.Done(entry.Action)} {entry.ItemName}",
+            JournalResult.Cancelled => $"Did not {verb} {entry.ItemName}",
+            _ => $"Could not {verb} {entry.ItemName}",
         };
 
         var parts = new List<string> { entry.AppName, ItemText.KindName(entry.Kind) };
@@ -51,6 +51,8 @@ public sealed class HistoryRow
         IsUndone = journal.Any(e => e.UndoOf == entry.Id && e.Result == JournalResult.Applied);
         if (IsUndone)
             parts.Add("Undone");
+        if (entry is { Action: ChangeAction.End, Result: JournalResult.Applied })
+            parts.Add("Cannot be undone");
         Subtitle = string.Join(" · ", parts);
 
         Error = entry.Error ?? "";

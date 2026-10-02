@@ -81,6 +81,7 @@ internal static class ServiceChanger
             else if (target.Running == true && controller.Status == ServiceControllerStatus.Stopped)
             {
                 controller.Start();
+                controller.WaitForStatus(ServiceControllerStatus.Running, StopTimeout);
             }
         }
         catch (Exception e) when (e is InvalidOperationException or Win32Exception or System.ServiceProcess.TimeoutException)

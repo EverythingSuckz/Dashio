@@ -19,6 +19,9 @@ public sealed class ResourceMonitor
 {
     public static readonly TimeSpan HistorySpan = TimeSpan.FromSeconds(60);
 
+    /// <summary>The group every running copy of Dashio is shown under.</summary>
+    public const string OwnGroupId = "dashio";
+
     /// <summary>Kept beyond the span that is shown: one reading at the longest interval, and a bit.</summary>
     private static readonly TimeSpan HistorySlack = TimeSpan.FromSeconds(12);
 
@@ -173,7 +176,7 @@ public sealed class ResourceMonitor
             known[key] = entry;
 
             usages.Add((entry.Owner, new ProcessUsage(
-                process.Pid, process.Name, entry.Process.Path, entry.Process.Services,
+                process.Pid, process.StartTicks, process.Name, entry.Process.Path, entry.Process.Services,
                 process.PrivateBytes, cpu.GetValueOrDefault(process.Pid))));
         }
         _known = known;
@@ -196,7 +199,7 @@ public sealed class ResourceMonitor
 
         // In a build folder Dashio would be named after that folder ("win-x64").
         if (process.Pid == Environment.ProcessId || IsDashio(running.Path))
-            return new Known(new ProcessOwner("dashio", "Dashio", null, running.Path, false, null, null), running, true);
+            return new Known(new ProcessOwner(OwnGroupId, "Dashio", null, running.Path, false, null, null), running, true);
 
         // The signature check is slow, so it runs elsewhere; until it is done the answer is provisional.
         var isFinal = true;

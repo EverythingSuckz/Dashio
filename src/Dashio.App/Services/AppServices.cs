@@ -2,6 +2,7 @@ using Dashio.Core.Attribution;
 using Dashio.Core.Changes;
 using Dashio.Core.Evidence;
 using Dashio.Core.Journal;
+using Dashio.Core.Processes;
 using Dashio.Core.Scanning;
 
 namespace Dashio.App.Services;
@@ -24,4 +25,6 @@ public static class AppServices
     public static PendingChanges Pending { get; } = new();
     public static ShellState Shell { get; } = new();
     public static ResourceMonitor Monitor { get; } = new(Evidence);
+    public static ProcessEnder Ender { get; } = new(evidence: Evidence);
+    public static EndCoordinator Ends { get; } = new(requests => Ender.EndAll(requests), Helper, Journal);
 }

@@ -1,5 +1,6 @@
 using Dashio.App.Services;
 using Dashio.App.ViewModels;
+using Dashio.Core.Journal;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -56,6 +57,30 @@ public sealed partial class AppDetailPage : Page
     private void Pending_Changed(object? sender, EventArgs e) => ViewModel.RefreshPending();
 
     private void TurnAll_Click(object sender, RoutedEventArgs e) => ViewModel.ToggleAll();
+
+    private async void EndApp_Click(object sender, RoutedEventArgs e) =>
+        await RunningActions.EndAppAsync(this, ViewModel.GroupId);
+
+    private void ShowLocation_Click(object sender, RoutedEventArgs e) =>
+        ItemActions.Reveal(RunningActions.LocationOf(ViewModel.GroupId));
+
+    private async void EndProcess_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: ProcessRowViewModel row })
+            await RunningActions.EndProcessAsync(this, ViewModel.GroupId, row.Usage);
+    }
+
+    private void RevealProcess_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: ProcessRowViewModel row })
+            ItemActions.Reveal(row.Path);
+    }
+
+    private async void StopItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: ItemRowViewModel row })
+            await ChangeRunner.ApplyAsync([ChangePlanner.StopNow(row.Item, row.AppName)]);
+    }
 
     private async void CopyDetail_Click(object sender, RoutedEventArgs e)
     {

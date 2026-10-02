@@ -35,9 +35,13 @@ and built-in COM interop, and the helper shares the app's runtime files. Sort th
 - **The window never runs elevated.** Admin work goes through `Dashio.Helper`, started once per
   batch behind a UAC prompt. An elevated window would also block `winapp ui`.
 - **Disable and enable only.** Nothing is deleted. Every change goes through `ChangeCoordinator`,
-  which re-reads the item from Windows before and after and writes the journal.
-- **The helper trusts only item ids and target states.** It looks each item up again and refuses
-  Windows components itself. Never make it run a command or path taken from the request.
+  which re-reads the item from Windows before and after and writes the journal. Ending a running
+  program goes through `EndCoordinator` and is journaled too.
+- **The helper trusts only item ids with target states, and process ids with start times.** It
+  looks each item and process up again and refuses Windows components itself. Never make it run
+  a command or path taken from the request.
+- **A process is its id and its start time together.** Windows reuses ids, so an id alone must
+  never be ended. `ProcessEnder` treats a different start time as "already gone".
 - **Windows components are decided by a trusted signature** (`ProtectionPolicy`), judged on the
   file that actually runs, not on a host such as `cmd.exe` or `svchost.exe`.
 - **No network access and no telemetry**, anywhere.

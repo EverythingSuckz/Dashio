@@ -6,6 +6,15 @@ public enum ChangeAction
 {
     Disable,
     Enable,
+
+    /// <summary>Stop a running service now, leaving its start type alone.</summary>
+    Stop,
+
+    /// <summary>Start a service, the undo of <see cref="Stop"/>.</summary>
+    Start,
+
+    /// <summary>End running processes. Cannot be undone.</summary>
+    End,
 }
 
 /// <summary>

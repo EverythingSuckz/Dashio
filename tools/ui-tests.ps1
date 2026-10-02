@@ -91,7 +91,7 @@ Test-UI 'The helper next to the app can look up a service' {
     try {
         $request = Join-Path $folder 'a.request.json'
         $response = Join-Path $folder 'a.response.json'
-        @{ SchemaVersion = 1; Changes = @(@{ ItemId = "service:machine:$($service.Name)"; Target = @{ Enabled = $true; StartType = 'Manual' } }) } |
+        @{ SchemaVersion = 2; Changes = @(@{ ItemId = "service:machine:$($service.Name)"; Target = @{ Enabled = $true; StartType = 'Manual' } }) } |
             ConvertTo-Json -Depth 5 | Set-Content $request
         dotnet $helper --request $request --response $response | Out-Null
         if (-not (Test-Path $response)) { throw 'The helper wrote no response.' }
@@ -144,7 +144,7 @@ try {
         # A row's name carries its live figure, so a row found a moment ago may already read differently.
         foreach ($attempt in 1..4) {
             $found = winapp ui search 'processes' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
-            $row = $found.matches | Where-Object { $_.type -eq 'Button' -and $_.name -notmatch '^Windows,' } | Select-Object -First 1
+            $row = $found.matches | Where-Object { $_.type -eq 'Button' -and $_.name -notmatch '^(Windows|Dashio),' } | Select-Object -First 1
             winapp ui invoke $row.selector -a $AppPid -w $hwnd 2>$null | Out-Null
             winapp ui wait-for 'DetailUsage' -a $AppPid -w $hwnd --value 'process' --contains -t 3000 2>$null | Out-Null
             if ($LASTEXITCODE -eq 0) { break }
@@ -152,6 +152,16 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'The app page did not show a running summary.' }
     }
     Save-Shot '00-running-now'
+    Test-UI 'End app asks first and can be cancelled' {
+        winapp ui invoke 'EndAppButton' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'PrimaryButton' -a $AppPid -w $hwnd --value 'End' -t 4000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'No confirmation appeared.' }
+        Save-Shot '00-end-confirm'
+        winapp ui invoke 'CloseButton' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'PrimaryButton' -a $AppPid -w $hwnd --gone -t 3000 | Out-Null
+        # Nothing was ended, so the app is still listed as running.
+        winapp ui wait-for 'DetailUsage' -a $AppPid -w $hwnd --value 'process' --contains -t 3000
+    }
     Test-UI 'A startup tile opens the Apps page' {
         winapp ui invoke 'NavOverview' -a $AppPid -w $hwnd | Out-Null
         winapp ui wait-for 'TileAtStartup' -a $AppPid -w $hwnd -t 5000 | Out-Null

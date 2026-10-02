@@ -101,6 +101,9 @@ public sealed partial class OverviewPage : Page
                 case "file":
                     item.IsEnabled = row.MainPath is not null;
                     break;
+                case "end":
+                    item.IsEnabled = RunningActions.CanEnd(AppServices.Monitor.UsageOf(row.GroupId));
+                    break;
                 case "toggle":
                     item.IsEnabled = canToggle;
                     item.Text = canToggle && !ItemActions.AnyOn(group!)
@@ -124,6 +127,12 @@ public sealed partial class OverviewPage : Page
     }
 
     private void UsageReveal_Click(object sender, RoutedEventArgs e) => ItemActions.Reveal(_menuRow?.MainPath);
+
+    private async void UsageEnd_Click(object sender, RoutedEventArgs e)
+    {
+        if (_menuRow is { } row)
+            await RunningActions.EndAppAsync(this, row.GroupId);
+    }
 
     private void UsageCopyName_Click(object sender, RoutedEventArgs e) => ItemActions.Copy(_menuRow?.Name);
 

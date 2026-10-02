@@ -27,7 +27,8 @@ public sealed record RunningProcess(int Pid, string Name, string? Path, IReadOnl
 public sealed record ProcessOwner(
     string GroupId, string Name, string? Publisher, string? IconPath, bool IsWindows, AppGroup? Group, AppSource? Source);
 
-public sealed record ProcessUsage(int Pid, string Name, string? Path, IReadOnlyList<string> Services, long MemoryBytes, double CpuPercent);
+public sealed record ProcessUsage(
+    int Pid, long StartTicks, string Name, string? Path, IReadOnlyList<string> Services, long MemoryBytes, double CpuPercent);
 
 /// <summary>What one app is using right now, summed over its processes.</summary>
 public sealed record AppUsage(ProcessOwner Owner, long MemoryBytes, double CpuPercent, IReadOnlyList<ProcessUsage> Processes)

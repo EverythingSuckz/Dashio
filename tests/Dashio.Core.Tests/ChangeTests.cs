@@ -1,6 +1,7 @@
 using Dashio.Core.Changes;
 using Dashio.Core.Journal;
 using Dashio.Core.Models;
+using Dashio.Core.Processes;
 
 namespace Dashio.Core.Tests;
 
@@ -74,14 +75,29 @@ internal sealed class FakeSystem : IHelperLauncher
         return new ChangeResult(item.Id, true);
     }
 
-    public Task<HelperRunResult> ApplyAsync(IReadOnlyList<ChangeRequest> changes, CancellationToken cancellation = default)
+    public Task<HelperRunResult> ApplyAsync(IReadOnlyList<ChangeRequest> changes, CancellationToken cancellation = default) =>
+        EndAsync(changes, [], cancellation);
+
+    /// <summary>Process ids the pretend helper was asked to end, in order.</summary>
+    public List<int> EndedByHelper { get; } = [];
+
+    /// <summary>Process ids nothing can end.</summary>
+    public HashSet<int> Unendable { get; } = [];
+
+    public Task<HelperRunResult> EndAsync(
+        IReadOnlyList<ChangeRequest> stops, IReadOnlyList<EndRequest> ends, CancellationToken cancellation = default)
     {
-        HelperCalls.Add(changes);
+        HelperCalls.Add(stops);
         if (CancelPrompt)
             return Task.FromResult(new HelperRunResult(true, []));
-        var processor = new HelperRequestProcessor(Find, Change);
-        var response = processor.Process(new HelperRequest(HelperRequest.CurrentVersion, changes));
-        return Task.FromResult(new HelperRunResult(false, response.Results, response.Error));
+        var processor = new HelperRequestProcessor(Find, Change, requests => requests.Select(r =>
+        {
+            EndedByHelper.Add(r.Pid);
+            return Unendable.Contains(r.Pid) ? new EndResult(r.Pid, false, "It is still running.") : new EndResult(r.Pid, true);
+        }).ToList());
+        var response = processor.Process(new HelperRequest(HelperRequest.CurrentVersion, stops, ends));
+        return Task.FromResult(
+            new HelperRunResult(false, response.Results, response.Error) { EndResults = response.EndResults ?? [] });
     }
 
     public Task<HelperScanResult> ScanTasksAsync(CancellationToken cancellation = default) =>

@@ -58,6 +58,14 @@
             </MenuFlyoutItem>
             <MenuFlyoutSeparator />
             <MenuFlyoutItem
+                Click="UsageEnd_Click"
+                Tag="end"
+                Text="End app">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE711;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+            <MenuFlyoutItem
                 Click="UsageToggleAll_Click"
                 Tag="toggle"
                 Text="Turn off everything it starts">

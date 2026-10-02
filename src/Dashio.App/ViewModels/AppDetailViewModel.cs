@@ -17,8 +17,10 @@ public sealed record AboutRow(string Glyph, string Label, string Value)
 /// <summary>One process of the app, with what it is using right now.</summary>
 public sealed partial class ProcessRowViewModel : ObservableObject
 {
-    public ProcessRowViewModel(ProcessUsage process)
+    public ProcessRowViewModel(ProcessUsage process, bool appCanBeEnded)
     {
+        Usage = process;
+        CanEnd = appCanBeEnded && RunningActions.CanEnd(process);
         Pid = process.Pid;
         Name = process.Name;
         Detail = process.Services.Count == 0
@@ -32,6 +34,13 @@ public sealed partial class ProcessRowViewModel : ObservableObject
     public string Name { get; }
     public string Detail { get; }
     public string Path { get; }
+    public bool HasPath => Path.Length > 0;
+    public bool CanEnd { get; }
+    public string EndName => $"End {Name}, process {Pid}";
+    public string RevealName => $"Show {Name} in File Explorer";
+
+    /// <summary>The latest reading, which carries the start time that identifies the process.</summary>
+    public ProcessUsage Usage { get; private set; }
 
     [ObservableProperty]
     public partial string Memory { get; set; } = "";
@@ -44,6 +53,7 @@ public sealed partial class ProcessRowViewModel : ObservableObject
 
     public void Update(ProcessUsage process)
     {
+        Usage = process;
         Memory = UsageText.Memory(process.MemoryBytes);
         Cpu = UsageText.Cpu(process.CpuPercent);
         AccessibleName = $"{Name}, {Detail}, memory {Memory}, processor {Cpu}";
@@ -78,6 +88,17 @@ public sealed partial class AppDetailViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool HasItems { get; set; }
+
+    [ObservableProperty]
+    public partial bool CanEndApp { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasLocation { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasActions { get; set; }
+
+    public string GroupId => _groupId;
 
     /// <summary>Section headings and item rows in one flat list, so the list can be virtualised.</summary>
     public ObservableCollection<object> Rows { get; } = [];
@@ -181,15 +202,19 @@ public sealed partial class AppDetailViewModel : ObservableObject
         IsRunningNow = usage is not null;
         IsNotRunningNow = HasUsage && usage is null;
 
+        CanEndApp = RunningActions.CanEnd(usage);
+        HasLocation = RunningActions.LocationOf(_groupId) is not null;
+        HasActions = HasItems || CanEndApp || HasLocation;
+
         var shown = usage?.Processes.Take(MaxProcesses).ToList() ?? [];
         for (var i = 0; i < shown.Count; i++)
         {
             if (i < Processes.Count && Processes[i].Pid == shown[i].Pid)
                 Processes[i].Update(shown[i]);
             else if (i < Processes.Count)
-                Processes[i] = new ProcessRowViewModel(shown[i]);
+                Processes[i] = new ProcessRowViewModel(shown[i], CanEndApp);
             else
-                Processes.Add(new ProcessRowViewModel(shown[i]));
+                Processes.Add(new ProcessRowViewModel(shown[i], CanEndApp));
         }
         while (Processes.Count > shown.Count)
             Processes.RemoveAt(Processes.Count - 1);

@@ -95,6 +95,10 @@ public sealed class ChangeJournal
 /// <summary>Works out what a change or an undo should ask for.</summary>
 public static class ChangePlanner
 {
+    /// <summary>Stops a running service now. Its start type stays as it is.</summary>
+    public static PlannedChange StopNow(AutostartItem item, string appName) => new(
+        item, appName, ChangeAction.Stop, new ItemState(item.Enabled, item.ServiceStartType, Running: false));
+
     public static ItemState DisableTarget(AutostartItem item) => item.Kind == AutostartKind.Service
         ? new ItemState(false, ServiceStartType.Disabled, Running: false)
         : new ItemState(false);
@@ -130,9 +134,13 @@ public static class ChangePlanner
 
 public static class UndoPlanner
 {
-    /// <summary>An entry can be undone once: it must have been applied and not already undone.</summary>
+    /// <summary>
+    /// An entry can be undone once: it must have been applied and not already undone.
+    /// An ended program cannot be brought back.
+    /// </summary>
     public static bool CanUndo(JournalEntry entry, IReadOnlyList<JournalEntry> journal) =>
         entry.Result == JournalResult.Applied
+        && entry.Action != ChangeAction.End
         && !journal.Any(e => e.UndoOf == entry.Id && e.Result == JournalResult.Applied);
 
     /// <summary>Something other than Dashio changed the item after this entry was written.</summary>
@@ -143,7 +151,12 @@ public static class UndoPlanner
     public static PlannedChange CreateUndo(JournalEntry entry, AutostartItem current) => new(
         current,
         entry.AppName,
-        entry.Before.Enabled ? ChangeAction.Enable : ChangeAction.Disable,
+        entry.Action switch
+        {
+            ChangeAction.Stop => ChangeAction.Start,
+            ChangeAction.Start => ChangeAction.Stop,
+            _ => entry.Before.Enabled ? ChangeAction.Enable : ChangeAction.Disable,
+        },
         entry.Before,
         UndoOf: entry.Id);
 }

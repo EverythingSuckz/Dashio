@@ -161,8 +161,8 @@ public sealed partial class OverviewViewModel : ObservableObject
             .OrderByDescending(e => e.Time)
             .Take(RecentCount)
             .Select(e => new RecentChange(
-                e.Action == ChangeAction.Disable ? "\uE7E8" : "\uE768",
-                $"Turned {(e.Action == ChangeAction.Disable ? "off" : "on")} {e.ItemName}",
+                ItemText.ActionGlyph(e.Action),
+                $"{ItemText.Done(e.Action)} {e.ItemName}",
                 $"{e.AppName} · {When(e.Time.LocalDateTime)}"))
             .ToList();
         HasNoRecent = Recent.Count == 0;

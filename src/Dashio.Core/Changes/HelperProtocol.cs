@@ -3,18 +3,22 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dashio.Core.Models;
+using Dashio.Core.Processes;
 
 namespace Dashio.Core.Changes;
 
-public sealed record HelperRequest(int SchemaVersion, IReadOnlyList<ChangeRequest> Changes)
+/// <param name="Ends">Processes to end after the changes, by id and start time only.</param>
+public sealed record HelperRequest(
+    int SchemaVersion, IReadOnlyList<ChangeRequest> Changes, IReadOnlyList<EndRequest>? Ends = null)
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     /// <summary>More than this in one batch is not something the app would ever send.</summary>
     public const int MaxChanges = 500;
 }
 
-public sealed record HelperResponse(IReadOnlyList<ChangeResult> Results, string? Error = null);
+public sealed record HelperResponse(
+    IReadOnlyList<ChangeResult> Results, string? Error = null, IReadOnlyList<EndResult>? EndResults = null);
 
 public sealed record TaskScanResponse(IReadOnlyList<AutostartItem> Items, string? Error = null);
 
@@ -35,19 +39,23 @@ public static class HelperJson
 
 /// <summary>
 /// What the elevated helper does with a request. It trusts nothing in the request beyond item ids
-/// and target states: every item is looked up again from Windows, and Windows components are refused.
+/// with target states and process ids with start times: every item and process is looked up
+/// again from Windows, and Windows components are refused.
 /// </summary>
 public sealed class HelperRequestProcessor
 {
     private readonly Func<IEnumerable<string>, IReadOnlyDictionary<string, AutostartItem>> _find;
     private readonly Func<AutostartItem, ItemState, ChangeResult> _apply;
+    private readonly Func<IReadOnlyList<EndRequest>, IReadOnlyList<EndResult>>? _endAll;
 
     public HelperRequestProcessor(
         Func<IEnumerable<string>, IReadOnlyDictionary<string, AutostartItem>> find,
-        Func<AutostartItem, ItemState, ChangeResult> apply)
+        Func<AutostartItem, ItemState, ChangeResult> apply,
+        Func<IReadOnlyList<EndRequest>, IReadOnlyList<EndResult>>? endAll = null)
     {
         _find = find;
         _apply = apply;
+        _endAll = endAll;
     }
 
     public HelperResponse Process(HelperRequest? request)
@@ -56,14 +64,20 @@ public sealed class HelperRequestProcessor
             return new HelperResponse([], "The request could not be read.");
         if (request.SchemaVersion != HelperRequest.CurrentVersion)
             return new HelperResponse([], $"Unsupported request version {request.SchemaVersion}.");
-        if (request.Changes is null || request.Changes.Count == 0)
+        var changes = request.Changes ?? [];
+        var ends = request.Ends ?? [];
+        if (changes.Count == 0 && ends.Count == 0)
             return new HelperResponse([], "The request contains no changes.");
-        if (request.Changes.Count > HelperRequest.MaxChanges)
+        if (changes.Count > HelperRequest.MaxChanges || ends.Count > HelperRequest.MaxChanges)
             return new HelperResponse([], "The request contains too many changes.");
+        if (ends.Count > 0 && _endAll is null)
+            return new HelperResponse([], "This helper cannot end programs.");
 
-        var current = _find(request.Changes.Select(c => c.ItemId));
+        var current = changes.Count == 0
+            ? new Dictionary<string, AutostartItem>()
+            : _find(changes.Select(c => c.ItemId));
         var results = new List<ChangeResult>();
-        foreach (var change in request.Changes)
+        foreach (var change in changes)
         {
             if (change.ItemId is null || change.Target is null)
             {
@@ -82,7 +96,9 @@ public sealed class HelperRequestProcessor
             }
             results.Add(_apply(item, change.Target));
         }
-        return new HelperResponse(results);
+
+        // Services are stopped first, so by now their processes have usually gone by themselves.
+        return new HelperResponse(results, EndResults: ends.Count == 0 ? null : _endAll!(ends));
     }
 
     /// <summary>
@@ -121,7 +137,10 @@ public sealed class HelperRequestProcessor
         folder.Length > 0 && path.StartsWith(folder.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase);
 }
 
-public sealed record HelperRunResult(bool Cancelled, IReadOnlyList<ChangeResult> Results, string? Error = null);
+public sealed record HelperRunResult(bool Cancelled, IReadOnlyList<ChangeResult> Results, string? Error = null)
+{
+    public IReadOnlyList<EndResult> EndResults { get; init; } = [];
+}
 
 public sealed record HelperScanResult(bool Cancelled, IReadOnlyList<AutostartItem> Items, string? Error = null);
 
@@ -129,6 +148,10 @@ public sealed record HelperScanResult(bool Cancelled, IReadOnlyList<AutostartIte
 public interface IHelperLauncher
 {
     Task<HelperRunResult> ApplyAsync(IReadOnlyList<ChangeRequest> changes, CancellationToken cancellation = default);
+
+    /// <summary>Stops the given services, then ends the given processes, behind one prompt.</summary>
+    Task<HelperRunResult> EndAsync(
+        IReadOnlyList<ChangeRequest> stops, IReadOnlyList<EndRequest> ends, CancellationToken cancellation = default);
     Task<HelperScanResult> ScanTasksAsync(CancellationToken cancellation = default);
 }
 
@@ -146,13 +169,17 @@ public sealed class HelperLauncher : IHelperLauncher
         _workFolder = workFolder ?? DashioPaths.Requests;
     }
 
-    public async Task<HelperRunResult> ApplyAsync(
-        IReadOnlyList<ChangeRequest> changes, CancellationToken cancellation = default)
+    public Task<HelperRunResult> ApplyAsync(
+        IReadOnlyList<ChangeRequest> changes, CancellationToken cancellation = default) =>
+        EndAsync(changes, [], cancellation);
+
+    public async Task<HelperRunResult> EndAsync(
+        IReadOnlyList<ChangeRequest> changes, IReadOnlyList<EndRequest> ends, CancellationToken cancellation = default)
     {
         var (requestPath, responsePath) = NewPaths();
         try
         {
-            HelperJson.Write(requestPath, new HelperRequest(HelperRequest.CurrentVersion, changes));
+            HelperJson.Write(requestPath, new HelperRequest(HelperRequest.CurrentVersion, changes, ends.Count == 0 ? null : ends));
             var run = await RunAsync($"--request \"{requestPath}\" --response \"{responsePath}\"", cancellation);
             if (run.Cancelled)
                 return new HelperRunResult(true, []);
@@ -162,7 +189,7 @@ public sealed class HelperLauncher : IHelperLauncher
             var response = ReadResponse<HelperResponse>(responsePath);
             return response is null
                 ? new HelperRunResult(false, [], "The helper did not report a result.")
-                : new HelperRunResult(false, response.Results ?? [], response.Error);
+                : new HelperRunResult(false, response.Results ?? [], response.Error) { EndResults = response.EndResults ?? [] };
         }
         finally
         {

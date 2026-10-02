@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dashio.Core.AdminScan;
 using Dashio.Core.Changes;
+using Dashio.Core.Processes;
 using Dashio.Core.Scanning;
 
 namespace Dashio.Helper;
@@ -9,7 +10,8 @@ namespace Dashio.Helper;
 /// The elevated half of Dashio. Started once per batch behind a Windows admin prompt:
 ///   Dashio.Helper.exe --request &lt;file&gt; --response &lt;file&gt;
 ///   Dashio.Helper.exe --scan-tasks --request &lt;file&gt; --response &lt;file&gt;
-/// It switches existing autostart items on or off, or lists scheduled tasks, and exits.
+/// It switches existing autostart items on or off, ends programs that are not part of Windows,
+/// or lists scheduled tasks, and exits.
 /// </summary>
 internal static class Program
 {
@@ -36,7 +38,9 @@ internal static class Program
             }
             else
             {
-                var processor = new HelperRequestProcessor(scanner.Find, new ChangeExecutor().Apply);
+                var ender = new ProcessEnder();
+                var processor = new HelperRequestProcessor(
+                    scanner.Find, new ChangeExecutor().Apply, ends => ender.EndAll(ends));
                 WriteNew(response, processor.Process(ReadRequest(request)));
             }
             return ExitOk;

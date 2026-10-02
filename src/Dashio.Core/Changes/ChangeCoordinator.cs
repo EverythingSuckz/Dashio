@@ -105,6 +105,16 @@ public sealed class ChangeCoordinator
                 result = JournalResult.Cancelled;
                 error = "The administrator prompt was cancelled.";
             }
+            else if (now is not null && change.Action == ChangeAction.Stop && now.IsRunning == true)
+            {
+                result = JournalResult.Failed;
+                error ??= "The service is still running.";
+            }
+            else if (now is not null && change.Action == ChangeAction.Start && now.IsRunning != true)
+            {
+                result = JournalResult.Failed;
+                error ??= "The service did not start.";
+            }
             else if (now is not null && change.Target.IsSatisfiedBy(ItemState.Of(now)))
             {
                 // Applied, possibly with a note such as "could not be stopped".

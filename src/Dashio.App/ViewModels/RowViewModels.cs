@@ -191,6 +191,10 @@ public sealed partial class ItemRowViewModel : ObservableObject
     public string StartsOrPending => IsPending ? PendingLabel : StartsLabel;
     public string ToggleLabel => IsOn ? "Turn off" : "Turn on";
     public bool HasFile => Item.Evidence is { Exists: true };
+
+    /// <summary>A running service can be stopped on the spot, whatever its start setting.</summary>
+    public bool CanStopNow => Item.Kind == AutostartKind.Service && IsRunning && CanChange;
+    public string StopName => $"Stop {Name} now";
     public bool HasCommand => !string.IsNullOrWhiteSpace(Item.Command);
 
     /// <summary>The status in one sentence, for screen readers and the table.</summary>

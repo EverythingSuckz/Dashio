@@ -38,6 +38,16 @@ A running program is tied to an app by the services it hosts, the folder it runs
 signature, never by a shared word in its name. Apps that run but start nothing by themselves
 appear on Overview only; the Apps page stays a list of what starts by itself.
 
+## Ending what is running
+
+**End app** closes everything an app is running, and **End** on a single process closes just
+that one. Dashio asks first. It then asks the app's windows to close, waits a few seconds, and
+ends whatever is still running. An app's running services are stopped properly first, which
+needs the administrator prompt.
+
+Parts of Windows cannot be ended, and neither can Dashio itself. Ending is recorded in History
+but cannot be undone: the app can simply be opened again.
+
 ## How items are matched to apps
 
 No single clue is enough, so Dashio applies five rules in order and records which one placed
@@ -66,6 +76,9 @@ and most tasks need administrator rights, so Windows shows one admin prompt per 
 | Scheduled task | Disabled in Task Scheduler |
 | Startup entry, Startup folder | The same on/off flag Task Manager uses |
 | Store app startup | The startup task set to disabled |
+
+A running service can also be stopped on the spot with **Stop**, which leaves its start setting
+alone; undoing that starts it again.
 
 After applying, Dashio reads each item back from Windows to confirm the change took effect.
 Every change is written to `%LOCALAPPDATA%\Dashio\journal.jsonl`, and **History** can undo any

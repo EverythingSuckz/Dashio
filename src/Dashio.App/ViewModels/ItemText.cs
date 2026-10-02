@@ -13,6 +13,7 @@ public static class ItemText
         AutostartKind.RunKey => "Startup entry",
         AutostartKind.StartupFolder => "Startup folder",
         AutostartKind.PackagedStartupTask => "Store app startup",
+        AutostartKind.Process => "Running program",
         _ => kind.ToString(),
     };
 
@@ -87,9 +88,37 @@ public static class ItemText
     /// <summary>"Turn off Killer Analytics Service" and similar, for the review dialog and history.</summary>
     public static string Describe(PlannedChange change)
     {
-        var verb = change.Action == ChangeAction.Disable ? "Turn off" : "Turn on";
-        return $"{verb} {change.Item.DisplayName}";
+        var verb = Verb(change.Action);
+        return $"{char.ToUpperInvariant(verb[0])}{verb[1..]} {change.Item.DisplayName}";
     }
+
+    /// <summary>"turn off", "stop": what was asked for.</summary>
+    public static string Verb(ChangeAction action) => action switch
+    {
+        ChangeAction.Disable => "turn off",
+        ChangeAction.Enable => "turn on",
+        ChangeAction.Stop => "stop",
+        ChangeAction.Start => "start",
+        _ => "end",
+    };
+
+    /// <summary>"Turned off", "Stopped": what happened.</summary>
+    public static string Done(ChangeAction action) => action switch
+    {
+        ChangeAction.Disable => "Turned off",
+        ChangeAction.Enable => "Turned on",
+        ChangeAction.Stop => "Stopped",
+        ChangeAction.Start => "Started",
+        _ => "Ended",
+    };
+
+    public static string ActionGlyph(ChangeAction action) => action switch
+    {
+        ChangeAction.Disable => "\uE7E8",   // PowerButton
+        ChangeAction.Stop => "\uE71A",      // Stop
+        ChangeAction.End => "\uE711",       // Cancel
+        _ => "\uE768",                      // Play
+    };
 
     public static string Plural(int count, string singular, string? plural = null) =>
         count == 1 ? $"1 {singular}" : $"{count} {plural ?? singular + "s"}";

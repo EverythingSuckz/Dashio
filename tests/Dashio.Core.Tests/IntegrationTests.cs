@@ -48,6 +48,14 @@ public sealed class IntegrationTests : IDisposable
             return System.Threading.Tasks.Task.FromResult(new HelperRunResult(true, []));
         }
 
+        public System.Threading.Tasks.Task<HelperRunResult> EndAsync(
+            IReadOnlyList<ChangeRequest> stops, IReadOnlyList<Dashio.Core.Processes.EndRequest> ends,
+            CancellationToken cancellation = default)
+        {
+            Calls++;
+            return System.Threading.Tasks.Task.FromResult(new HelperRunResult(true, []));
+        }
+
         public System.Threading.Tasks.Task<HelperScanResult> ScanTasksAsync(CancellationToken cancellation = default) =>
             System.Threading.Tasks.Task.FromResult(new HelperScanResult(true, []));
     }

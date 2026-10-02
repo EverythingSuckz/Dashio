@@ -27,7 +27,23 @@
                     <FontIcon Glyph="&#xE7E8;" />
                 </MenuFlyoutItem.Icon>
             </MenuFlyoutItem>
+            <MenuFlyoutItem
+                Click="AppEnd_Click"
+                Tag="end"
+                Text="End app">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE711;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
             <MenuFlyoutSeparator />
+            <MenuFlyoutItem
+                Click="AppReveal_Click"
+                Tag="file"
+                Text="Show file in File Explorer">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE838;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
             <MenuFlyoutItem Click="AppCopyName_Click" Text="Copy name">
                 <MenuFlyoutItem.Icon>
                     <FontIcon Glyph="&#xE8C8;" />

@@ -7,6 +7,9 @@ public enum AutostartKind
     RunKey,
     StartupFolder,
     PackagedStartupTask,
+
+    /// <summary>A running program. Not an autostart item: used only in the change log, for "Ended".</summary>
+    Process,
 }
 
 public enum ItemScope
