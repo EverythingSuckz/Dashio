@@ -3,6 +3,7 @@
 #   pwsh tools\ui-tests.ps1                 # builds nothing; run `dotnet build src\Dashio.App` first
 #                                           # (a solution build goes to bin\x64, which this does not run)
 #   pwsh tools\ui-tests.ps1 -Configuration Release
+#   pwsh tools\ui-tests.ps1 -Exe artifacts\Dashio-0.1.0-x64\Dashio.exe
 #
 # The script starts its own copy of the app with DASHIO_DATA_DIR pointing at a temp folder, so
 # your settings and change log are not touched. It creates one throwaway startup entry under
@@ -15,12 +16,14 @@
 
 param(
     [string]$Configuration = 'Debug',
+    # Test this Dashio.exe instead of a build, for example the one in a release folder.
+    [string]$Exe,
     [string]$ShotFolder = (Join-Path ([System.IO.Path]::GetTempPath()) 'dashio-ui-tests')
 )
 
 $ErrorActionPreference = 'Continue'
 $repo = Split-Path $PSScriptRoot -Parent
-$exe = Join-Path $repo "src\Dashio.App\bin\$Configuration\net10.0-windows10.0.26100.0\win-x64\Dashio.exe"
+$exe = if ($Exe) { $Exe } else { Join-Path $repo "src\Dashio.App\bin\$Configuration\net10.0-windows10.0.26100.0\win-x64\Dashio.exe" }
 if (-not (Test-Path $exe)) { Write-Host "Not built: $exe" -ForegroundColor Red; exit 2 }
 
 $testName = 'DashioUiTest'

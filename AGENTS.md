@@ -14,12 +14,18 @@ dotnet test tests\Dashio.Core.Tests --filter "Category=Live"          # read-onl
 dotnet test tests\Dashio.Core.Tests --filter "Category=Integration"   # user-level throwaway entries
 pwsh tools\ui-tests.ps1                                               # drives a background copy of the real window
 pwsh tools\make-icon.ps1                                              # regenerates Assets\AppIcon.ico
+pwsh tools\publish.ps1                                                # release folder and installer in artifacts\
+pwsh tools\ui-tests.ps1 -Exe artifacts\Dashio-0.1.0-x64\Dashio.exe    # UI tests against the release folder
 ```
 
 Close a running `Dashio.exe` before building; it locks the output.
 
 The solution build writes the app to `bin\x64\Debug`, but `dotnet run` and `tools\ui-tests.ps1`
 use `bin\Debug`. Run `dotnet build src\Dashio.App` before the UI tests, or they drive a stale copy.
+
+The release bundles .NET and the Windows App SDK, and installs to Program Files (`installer\Dashio.iss`,
+needs Inno Setup 6). It is not trimmed: `Dashio.Core` uses reflection-based JSON, `dynamic` COM calls
+and built-in COM interop, and the helper shares the app's runtime files. Sort those out before trimming.
 
 ## Rules that are easy to break
 
