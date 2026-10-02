@@ -103,7 +103,7 @@ public sealed partial class ScanState : ObservableObject
         var partOfWindows = added.Count(i => i.IsProtected);
         if (partOfWindows > 0 && !AppServices.Settings.ShowWindowsComponents)
             message += $" {partOfWindows} belong to Windows and stay out of the list unless you choose View, Show Windows components.";
-        return (message + " Apps with a newly found task carry an Admin scan badge.", false);
+        return (message, false);
     }
 
     private async Task RegroupAsync()
