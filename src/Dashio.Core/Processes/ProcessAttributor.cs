@@ -69,10 +69,52 @@ public sealed class ProcessAttributor
             }
         }
 
+        // An SDK can register dozens of components that all live in one folder. They are one app.
+        var sharing = _located.Where(s => !s.IsSystem && !_bySource.ContainsKey(s.Id))
+            .GroupBy(s => s.InstallLocation!, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1);
+        foreach (var folder in sharing)
+        {
+            var members = folder.OrderBy(s => s.Id, StringComparer.OrdinalIgnoreCase).ToList();
+            var names = members.Select(SourceName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var shared = New(
+                members[0].Id,
+                names.Count == 1 ? names[0] : SharedName(names, folder.Key),
+                members.Select(m => m.Publisher).FirstOrDefault(p => !string.IsNullOrWhiteSpace(p)),
+                members.Select(m => m.IconPath).FirstOrDefault(p => !string.IsNullOrWhiteSpace(p)),
+                members[0]);
+            foreach (var member in members)
+                _sameAs[member.Id] = shared;
+        }
+
         foreach (var group in groups.Where(g => !g.IsWindows && !g.IsUnmatched && !g.IsVendorBucket))
             AddName(Existing(group));
         foreach (var source in _located.Where(s => !s.IsSystem && !_bySource.ContainsKey(s.Id)))
-            AddName(FromSource(source, null));
+            AddName(_sameAs.GetValueOrDefault(source.Id) ?? FromSource(source, null));
+    }
+
+    /// <summary>The words the names start with in common, or failing that the folder's own name.</summary>
+    private string SharedName(List<string> names, string folder)
+    {
+        var prefix = AttributionEngine.CommonWordPrefix(names);
+        if (prefix.Length >= 3)
+            return NameTokens.CleanDisplayName(prefix);
+        return ProductFolders.For(folder + "\\x", null, _knownVendors, _overrides) is { } product
+            ? ProductFolders.DisplayName(product)
+            : Path.GetFileName(folder);
+    }
+
+    private static string SourceName(AppSource source) => source.Kind == AppSourceKind.InstalledApp
+        ? NameTokens.CleanAppName(source.Name)
+        : NameTokens.CleanDisplayName(source.Name);
+
+    /// <summary>The owner a source ends up with after duplicates have been folded together.</summary>
+    private ProcessOwner Canonical(AppSource source, string? processPath)
+    {
+        if (!_sameAs.TryGetValue(source.Id, out var owner))
+            return FromSource(source, processPath);
+        // A folder-sharing set can itself be the same app as another entry of the same name.
+        return _sameAs.TryGetValue(owner.GroupId, out var further) && further.GroupId != owner.GroupId ? further : owner;
     }
 
     private void AddName(ProcessOwner owner)
@@ -99,13 +141,8 @@ public sealed class ProcessAttributor
             _byName[owner.Name] = null;
     }
 
-    private ProcessOwner FromSource(AppSource source, string? processPath)
-    {
-        var name = source.Kind == AppSourceKind.InstalledApp
-            ? NameTokens.CleanAppName(source.Name)
-            : NameTokens.CleanDisplayName(source.Name);
-        return New(source.Id, _overrides.Rename(name), source.Publisher, source.IconPath ?? processPath, source);
-    }
+    private ProcessOwner FromSource(AppSource source, string? processPath) =>
+        New(source.Id, _overrides.Rename(SourceName(source)), source.Publisher, source.IconPath ?? processPath, source);
 
     /// <summary>
     /// An app whose name is exactly the folder's name, when only one app has that name and the
@@ -164,9 +201,7 @@ public sealed class ProcessAttributor
         {
             if (_bySource.TryGetValue(source.Id, out var owner))
                 return Existing(owner);
-            if (source.IsSystem)
-                return Windows();
-            return _sameAs.GetValueOrDefault(source.Id) ?? FromSource(source, path);
+            return source.IsSystem ? Windows() : Canonical(source, path);
         }
 
         if (DriverPackageCollector.Locate(path) is { } driver)
@@ -199,6 +234,34 @@ public sealed class ProcessAttributor
             $"exe:{path.ToLowerInvariant()}",
             facts?.Description ?? facts?.Product ?? fileName,
             ShortCompany(company), path, null);
+    }
+
+    /// <summary>The app an installed-app entry or Store package belongs to, under the same id its processes get.</summary>
+    public ProcessOwner OwnerOfSource(AppSource source)
+    {
+        if (_bySource.TryGetValue(source.Id, out var group))
+            return Existing(group);
+        return source.IsSystem ? Windows() : Canonical(source, null);
+    }
+
+    /// <summary>
+    /// The known app a file belongs to, or null. Unlike a process, a file that matches nothing is
+    /// left unclaimed instead of being given a group of its own.
+    /// </summary>
+    public ProcessOwner? OwnerOfPath(string path)
+    {
+        var owner = Assign(new RunningProcess(0, "", path, []), _ => null);
+        return owner.IsWindows || (owner.Group is null && owner.Source is null) ? null : owner;
+    }
+
+    /// <summary>The known app a folder of data belongs to, or null.</summary>
+    public ProcessOwner? OwnerOfFolder(string folder) => OwnerOfPath(Path.Combine(folder, "_"));
+
+    /// <summary>Whether a folder is named after a software maker, so its subfolders are the products.</summary>
+    public bool IsVendorFolder(string folder)
+    {
+        var key = _overrides.PublisherKey(Path.GetFileName(folder));
+        return key.Length > 0 && _knownVendors.Contains(key);
     }
 
     /// <summary>The group most of the hosted services belong to. Windows wins a tie, as the host is usually its own.</summary>

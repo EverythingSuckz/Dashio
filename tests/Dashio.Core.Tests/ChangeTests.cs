@@ -102,6 +102,9 @@ internal sealed class FakeSystem : IHelperLauncher
 
     public Task<HelperScanResult> ScanTasksAsync(CancellationToken cancellation = default) =>
         Task.FromResult(new HelperScanResult(false, []));
+
+    public Task<HelperPrefetchResult> ScanPrefetchAsync(CancellationToken cancellation = default) =>
+        Task.FromResult(new HelperPrefetchResult(false, []));
 }
 
 public sealed class ChangeCoordinatorTests : IDisposable

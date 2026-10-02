@@ -51,6 +51,10 @@ public sealed class InstalledAppCollector
                         Publisher = (key.GetValue("Publisher") as string)?.Trim(),
                         InstallLocation = InstallFolder(key, icon),
                         IconPath = icon,
+                        IsHiddenComponent = key.GetValue("SystemComponent") is 1,
+                        // Stored in kilobytes.
+                        EstimatedBytes = key.GetValue("EstimatedSize") is int kilobytes and > 0 ? kilobytes * 1024L : null,
+                        InstalledOn = ParseInstallDate(key.GetValue("InstallDate") as string),
                     });
                 }
             }
@@ -60,6 +64,14 @@ public sealed class InstalledAppCollector
         }
         return sources;
     }
+
+    /// <summary>Installers write the date as "20250314".</summary>
+    private static DateTimeOffset? ParseInstallDate(string? value) =>
+        DateTime.TryParseExact(
+            value, "yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AssumeLocal, out var date)
+            ? date
+            : null;
 
     private static string? StripIconIndex(string? displayIcon)
     {

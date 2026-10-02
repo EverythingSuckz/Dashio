@@ -73,9 +73,9 @@ public sealed class ResourceMonitor
     }
 
     /// <summary>Call after a scan, so processes are matched against the new groups.</summary>
-    public void UseScan(IReadOnlyList<AppGroup> groups, IReadOnlyList<AppSource> sources)
+    public void UseScan(ProcessAttributor attributor)
     {
-        _attributor = new ProcessAttributor(groups, sources);
+        _attributor = attributor;
         RefreshNow();
     }
 

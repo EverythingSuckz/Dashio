@@ -45,6 +45,7 @@ public sealed class PackageCollector : IItemCollector
                 if (string.IsNullOrWhiteSpace(name))
                     name = package.Id.Name;
 
+                var manifest = string.IsNullOrEmpty(location) ? null : LoadManifest(location);
                 sources.Add(new AppSource
                 {
                     Kind = AppSourceKind.StorePackage,
@@ -55,10 +56,16 @@ public sealed class PackageCollector : IItemCollector
                     IconPath = Safe(() => package.Logo?.LocalPath),
                     PackageFamilyName = family,
                     IsSystem = package.SignatureKind == PackageSignatureKind.System,
+                    InstalledOn = SafeDate(() => package.InstalledDate),
+                    AppIds = manifest is null ? [] : ReadApps(manifest).Select(a => $"{family}!{a.Id}").ToList(),
+                    AppPrograms = manifest is null
+                        ? []
+                        : ReadApps(manifest).Where(a => a.Executable is not null)
+                            .Select(a => Path.Combine(location!, a.Executable!)).ToList(),
                 });
 
-                if (!string.IsNullOrEmpty(location))
-                    items.AddRange(ReadStartupTasks(family, name, location));
+                if (manifest is not null)
+                    items.AddRange(ReadStartupTasks(family, name, location!, manifest));
             }
             catch (Exception)
             {
@@ -80,22 +87,45 @@ public sealed class PackageCollector : IItemCollector
         }
     }
 
-    private static IEnumerable<AutostartItem> ReadStartupTasks(string family, string packageName, string location)
+    private static DateTimeOffset? SafeDate(Func<DateTimeOffset> read)
     {
-        var manifestPath = Path.Combine(location, "AppxManifest.xml");
-        if (!File.Exists(manifestPath))
-            yield break;
-
-        XDocument manifest;
         try
         {
-            manifest = XDocument.Load(manifestPath);
+            return read();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static XDocument? LoadManifest(string location)
+    {
+        var manifestPath = Path.Combine(location, "AppxManifest.xml");
+        try
+        {
+            return File.Exists(manifestPath) ? XDocument.Load(manifestPath) : null;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Xml.XmlException)
         {
-            yield break;
+            return null;
         }
+    }
 
+    /// <summary>The apps a person can open: those with an entry in the Start menu's app list.</summary>
+    private static List<(string Id, string? Executable)> ReadApps(XDocument manifest) => manifest.Descendants()
+        .Where(e => e.Name.LocalName == "Application")
+        .Where(e => !e.Descendants().Any(v =>
+            v.Name.LocalName == "VisualElements" &&
+            string.Equals((string?)v.Attribute("AppListEntry"), "none", StringComparison.OrdinalIgnoreCase)))
+        .Select(e => (Id: (string?)e.Attribute("Id"), Executable: (string?)e.Attribute("Executable")))
+        .Where(a => !string.IsNullOrEmpty(a.Id))
+        .Select(a => (a.Id!, string.IsNullOrEmpty(a.Executable) ? null : a.Executable))
+        .ToList();
+
+    private static IEnumerable<AutostartItem> ReadStartupTasks(
+        string family, string packageName, string location, XDocument manifest)
+    {
         var extensions = manifest.Descendants().Where(e =>
             e.Name.LocalName == "Extension" && (string?)e.Attribute("Category") == "windows.startupTask");
 

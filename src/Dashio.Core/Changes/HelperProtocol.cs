@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Dashio.Core.Inventory;
 using Dashio.Core.Models;
 using Dashio.Core.Processes;
 
@@ -144,6 +145,8 @@ public sealed record HelperRunResult(bool Cancelled, IReadOnlyList<ChangeResult>
 
 public sealed record HelperScanResult(bool Cancelled, IReadOnlyList<AutostartItem> Items, string? Error = null);
 
+public sealed record HelperPrefetchResult(bool Cancelled, IReadOnlyList<PrefetchEntry> Entries, string? Error = null);
+
 /// <summary>Starts the elevated helper. Abstracted so the change flow can be tested without elevation.</summary>
 public interface IHelperLauncher
 {
@@ -153,6 +156,9 @@ public interface IHelperLauncher
     Task<HelperRunResult> EndAsync(
         IReadOnlyList<ChangeRequest> stops, IReadOnlyList<EndRequest> ends, CancellationToken cancellation = default);
     Task<HelperScanResult> ScanTasksAsync(CancellationToken cancellation = default);
+
+    /// <summary>Reads when each program last ran, which only an administrator may.</summary>
+    Task<HelperPrefetchResult> ScanPrefetchAsync(CancellationToken cancellation = default);
 }
 
 /// <summary>Runs <c>Dashio.Helper.exe</c> behind one Windows admin prompt and reads back its response file.</summary>
@@ -215,6 +221,30 @@ public sealed class HelperLauncher : IHelperLauncher
             return response is null
                 ? new HelperScanResult(false, [], "The helper did not report a result.")
                 : new HelperScanResult(false, response.Items ?? [], response.Error);
+        }
+        finally
+        {
+            TryDelete(requestPath);
+            TryDelete(responsePath);
+        }
+    }
+
+    public async Task<HelperPrefetchResult> ScanPrefetchAsync(CancellationToken cancellation = default)
+    {
+        var (requestPath, responsePath) = NewPaths();
+        try
+        {
+            File.WriteAllText(requestPath, "{}");
+            var run = await RunAsync($"--scan-prefetch --request \"{requestPath}\" --response \"{responsePath}\"", cancellation);
+            if (run.Cancelled)
+                return new HelperPrefetchResult(true, []);
+            if (run.Error is not null)
+                return new HelperPrefetchResult(false, [], run.Error);
+
+            var response = ReadResponse<PrefetchScanResponse>(responsePath);
+            return response is null
+                ? new HelperPrefetchResult(false, [], "The helper did not report a result.")
+                : new HelperPrefetchResult(false, response.Entries ?? [], response.Error);
         }
         finally
         {

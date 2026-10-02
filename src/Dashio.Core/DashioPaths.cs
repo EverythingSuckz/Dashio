@@ -14,4 +14,6 @@ public static class DashioPaths
     public static string Journal => Path.Combine(DataFolder, "journal.jsonl");
     public static string Settings => Path.Combine(DataFolder, "settings.json");
     public static string Requests => Path.Combine(DataFolder, "requests");
+    public static string Sizes => Path.Combine(DataFolder, "sizes.json");
+    public static string Sightings => Path.Combine(DataFolder, "sightings.json");
 }

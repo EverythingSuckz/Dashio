@@ -634,6 +634,86 @@
                             Visibility="{x:Bind local:Ui.Visible(ViewModel.IsNotRunningNow), Mode=OneWay}" />
                     </StackPanel>
 
+                    <!-- Where the app's files are and how much room each folder takes. -->
+                    <StackPanel Visibility="{x:Bind local:Ui.Visible(ViewModel.HasFolders), Mode=OneWay}">
+                        <Grid Margin="0,24,0,8" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon
+                                VerticalAlignment="Top"
+                                FontSize="20"
+                                Glyph="&#xEDA2;" />
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock
+                                        AutomationProperties.HeadingLevel="Level2"
+                                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                                        Text="Storage" />
+                                    <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" Style="{StaticResource BadgeStyle}">
+                                        <TextBlock
+                                            AutomationProperties.AutomationId="DetailStorage"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource BadgeTextStyle}"
+                                            Text="{x:Bind ViewModel.StorageSummary, Mode=OneWay}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="The app's own files, and the data it keeps in your user folders."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Border Style="{StaticResource PanelStyle}">
+                            <ItemsRepeater ItemsSource="{x:Bind ViewModel.Folders, Mode=OneWay}">
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FolderRow">
+                                        <Grid
+                                            Padding="20,10,12,10"
+                                            AutomationProperties.Name="{x:Bind AccessibleName}"
+                                            BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                            BorderThickness="0,0,0,1"
+                                            ColumnSpacing="16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="96" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Spacing="2">
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="{x:Bind Kind}" />
+                                                <TextBlock
+                                                    FontFamily="{StaticResource CodeFontFamily}"
+                                                    IsTextSelectionEnabled="True"
+                                                    Text="{x:Bind Path}"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <TextBlock
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                Text="{x:Bind Size}"
+                                                TextAlignment="Right" />
+                                            <Button
+                                                Grid.Column="2"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.Name="{x:Bind RevealName}"
+                                                Click="OpenFolder_Click"
+                                                Style="{StaticResource RowActionButtonStyle}"
+                                                Tag="{x:Bind}"
+                                                ToolTipService.ToolTip="Open in File Explorer">
+                                                <FontIcon FontSize="14" Glyph="&#xE838;" />
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                        </Border>
+                    </StackPanel>
+
                     <!-- What Windows knows about this app, under the items when there is no room beside them. -->
                     <Border
                         x:Name="AboutNarrow"

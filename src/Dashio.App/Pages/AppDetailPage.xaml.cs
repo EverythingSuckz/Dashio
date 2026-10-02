@@ -34,6 +34,7 @@ public sealed partial class AppDetailPage : Page
         AppServices.State.Changed += State_Changed;
         AppServices.Pending.Changed += Pending_Changed;
         AppServices.Monitor.Updated += Monitor_Updated;
+        AppServices.Inventory.Changed += Inventory_Changed;
         ViewModel.Load(e.Parameter as string ?? "");
     }
 
@@ -42,6 +43,15 @@ public sealed partial class AppDetailPage : Page
         AppServices.State.Changed -= State_Changed;
         AppServices.Pending.Changed -= Pending_Changed;
         AppServices.Monitor.Updated -= Monitor_Updated;
+        AppServices.Inventory.Changed -= Inventory_Changed;
+    }
+
+    private void Inventory_Changed(object? sender, EventArgs e) => ViewModel.UpdateStorage();
+
+    private void OpenFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: FolderRow row })
+            ItemActions.OpenFolder(row.Path);
     }
 
     private void Monitor_Updated(object? sender, EventArgs e) => ViewModel.UpdateUsage();

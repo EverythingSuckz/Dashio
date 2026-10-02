@@ -58,6 +58,9 @@ public sealed class IntegrationTests : IDisposable
 
         public System.Threading.Tasks.Task<HelperScanResult> ScanTasksAsync(CancellationToken cancellation = default) =>
             System.Threading.Tasks.Task.FromResult(new HelperScanResult(true, []));
+
+        public System.Threading.Tasks.Task<HelperPrefetchResult> ScanPrefetchAsync(CancellationToken cancellation = default) =>
+            System.Threading.Tasks.Task.FromResult(new HelperPrefetchResult(true, []));
     }
 
     [Fact]

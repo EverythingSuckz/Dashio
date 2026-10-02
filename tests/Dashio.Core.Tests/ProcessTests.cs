@@ -261,6 +261,24 @@ public class ProcessAttributorTests
     }
 
     [Fact]
+    public void Entries_that_share_one_folder_are_one_app_named_after_what_they_have_in_common()
+    {
+        var (items, sources) = Machine();
+        var folder = $@"{ProgramFiles}\Tailspin Toolkit\v1";
+        sources.Add(Installed("Tailspin Compiler", "Tailspin", folder));
+        sources.Add(Installed("Tailspin Runtime", "Tailspin", folder));
+        var attributor = Attributor(items, sources);
+
+        var a = attributor.OwnerOfSource(sources[^2]);
+        var b = attributor.OwnerOfSource(sources[^1]);
+        var running = attributor.Assign(Running($@"{folder}\bin\tool.exe"), NoEvidence);
+
+        Assert.Equal(a.GroupId, b.GroupId);
+        Assert.Equal(a.GroupId, running.GroupId);
+        Assert.Equal("Tailspin", a.Name);
+    }
+
+    [Fact]
     public void A_dot_folder_does_not_name_an_app()
     {
         var (items, sources) = Machine();

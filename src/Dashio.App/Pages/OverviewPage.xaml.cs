@@ -27,8 +27,10 @@ public sealed partial class OverviewPage : Page
         AppServices.State.Changed += (_, _) => ViewModel.RebuildStartup();
         AppServices.Settings.Changed += (_, _) => ViewModel.RebuildStartup();
         AppServices.Monitor.Updated += (_, _) => ShowReading();
+        AppServices.Inventory.Changed += (_, _) => ViewModel.RebuildInstalled();
 
         ViewModel.RebuildStartup();
+        ViewModel.RebuildInstalled();
         ShowReading();
 
         SizeChanged += (_, e) =>
@@ -66,6 +68,7 @@ public sealed partial class OverviewPage : Page
 
         Ui.Flow(MeterGrid, twoColumns);
         Ui.Flow(TopGrid, twoColumns);
+        Ui.Flow(InstalledGrid, twoColumns);
         Ui.Flow(TileGrid, width >= TilesInARowMinWidth);
     }
 
@@ -149,6 +152,12 @@ public sealed partial class OverviewPage : Page
     private void RunningTile_Click(object sender, RoutedEventArgs e) => OpenApps(AppFilter.All);
 
     private void OpenApps(AppFilter filter) => Frame.Navigate(typeof(AppsPage), filter, FromRight);
+
+    private void OpenInstalled_Click(object sender, RoutedEventArgs e) =>
+        Frame.Navigate(typeof(InstalledPage), InstalledFilter.All, FromRight);
+
+    private void OpenUnused_Click(object sender, RoutedEventArgs e) =>
+        Frame.Navigate(typeof(InstalledPage), InstalledFilter.NotOpenedLately, FromRight);
 
     private void OpenHistory_Click(object sender, RoutedEventArgs e) =>
         Frame.Navigate(typeof(HistoryPage), null, new EntranceNavigationTransitionInfo());

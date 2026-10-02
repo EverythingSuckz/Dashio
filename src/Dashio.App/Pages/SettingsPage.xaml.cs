@@ -78,6 +78,23 @@ public sealed partial class SettingsPage : Page
         }
     }
 
+    private async void UsageCheck_Click(object sender, RoutedEventArgs e)
+    {
+        UsageCheckButton.IsEnabled = false;
+        UsageCheckRing.IsActive = true;
+        try
+        {
+            var (message, isError) = await AppServices.Inventory.RunAdminCheckAsync();
+            AppServices.Shell.Notify(new Notice(
+                isError ? InfoBarSeverity.Error : InfoBarSeverity.Informational, "Last opened", message));
+        }
+        finally
+        {
+            UsageCheckRing.IsActive = false;
+            UsageCheckButton.IsEnabled = true;
+        }
+    }
+
     private void OpenLogFolder_Click(object sender, RoutedEventArgs e)
     {
         var folder = Path.GetDirectoryName(ChangeJournal.DefaultPath)!;

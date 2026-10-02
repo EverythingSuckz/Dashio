@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dashio.Core.AdminScan;
 using Dashio.Core.Changes;
+using Dashio.Core.Inventory;
 using Dashio.Core.Processes;
 using Dashio.Core.Scanning;
 
@@ -10,8 +11,9 @@ namespace Dashio.Helper;
 /// The elevated half of Dashio. Started once per batch behind a Windows admin prompt:
 ///   Dashio.Helper.exe --request &lt;file&gt; --response &lt;file&gt;
 ///   Dashio.Helper.exe --scan-tasks --request &lt;file&gt; --response &lt;file&gt;
+///   Dashio.Helper.exe --scan-prefetch --request &lt;file&gt; --response &lt;file&gt;
 /// It switches existing autostart items on or off, ends programs that are not part of Windows,
-/// or lists scheduled tasks, and exits.
+/// lists scheduled tasks, or lists when programs last ran, and exits.
 /// </summary>
 internal static class Program
 {
@@ -36,6 +38,10 @@ internal static class Program
             {
                 WriteNew(response, new TaskScanResponse(AdminTaskScan.Run(scanner)));
             }
+            else if (args.Contains("--scan-prefetch", StringComparer.OrdinalIgnoreCase))
+            {
+                WriteNew(response, ReadPrefetch());
+            }
             else
             {
                 var ender = new ProcessEnder();
@@ -55,6 +61,18 @@ internal static class Program
             {
             }
             return ExitFailed;
+        }
+    }
+
+    private static PrefetchScanResponse ReadPrefetch()
+    {
+        try
+        {
+            return new PrefetchScanResponse(PrefetchReader.Read());
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return new PrefetchScanResponse([], e.Message);
         }
     }
 

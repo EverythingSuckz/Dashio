@@ -27,6 +27,16 @@ public static class ItemActions
         Process.Start(start)?.Dispose();
     }
 
+    /// <summary>Opens a folder in File Explorer.</summary>
+    public static void OpenFolder(string? folder)
+    {
+        if (folder is null || !Directory.Exists(folder))
+            return;
+        var start = new ProcessStartInfo("explorer.exe") { UseShellExecute = false };
+        start.ArgumentList.Add(folder);
+        Process.Start(start)?.Dispose();
+    }
+
     /// <summary>Whether any changeable item of the app is on, counting queued changes.</summary>
     public static bool AnyOn(AppGroup group) => group.Items
         .Where(i => !i.Item.IsProtected && !i.Item.IsHiddenTask)

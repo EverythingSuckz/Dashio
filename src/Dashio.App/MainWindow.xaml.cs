@@ -46,6 +46,7 @@ public sealed partial class MainWindow : Window
         NavFrame.SizeChanged += (_, e) => Ui.FitToPage(BannerPanel, e.NewSize.Width);
 
         AppServices.Monitor.Start(DispatcherQueue);
+        AppServices.Inventory.Start(DispatcherQueue);
         VisibilityChanged += (_, e) => UpdateMonitorVisibility(e.Visible);
         AppWindow.Changed += (_, _) =>
         {
@@ -106,6 +107,7 @@ public sealed partial class MainWindow : Window
     {
         "overview" => typeof(OverviewPage),
         "apps" => typeof(AppsPage),
+        "installed" => typeof(InstalledPage),
         "items" => typeof(AllItemsPage),
         "history" => typeof(HistoryPage),
         _ => null,
@@ -141,6 +143,8 @@ public sealed partial class MainWindow : Window
                 NavView.SelectedItem = NavView.SettingsItem;
             else if (page == typeof(OverviewPage))
                 NavView.SelectedItem = OverviewItem;
+            else if (page == typeof(InstalledPage))
+                NavView.SelectedItem = InstalledItem;
             else if (page == typeof(AllItemsPage))
                 NavView.SelectedItem = AllItemsItem;
             else if (page == typeof(HistoryPage))
@@ -183,7 +187,7 @@ public sealed partial class MainWindow : Window
     {
         AppServices.Shell.SetSearch(sender.Text);
         var page = NavFrame.CurrentSourcePageType;
-        if (sender.Text.Length > 0 && page != typeof(AppsPage) && page != typeof(AllItemsPage))
+        if (sender.Text.Length > 0 && page != typeof(AppsPage) && page != typeof(AllItemsPage) && page != typeof(InstalledPage))
             NavigateTop(typeof(AppsPage));
     }
 

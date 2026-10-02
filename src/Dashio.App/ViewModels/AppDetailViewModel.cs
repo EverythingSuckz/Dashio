@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Dashio.App.Services;
+using Dashio.Core.Inventory;
 using Dashio.Core.Models;
 using Dashio.Core.Parsing;
 using Dashio.Core.Processes;
@@ -12,6 +13,13 @@ namespace Dashio.App.ViewModels;
 public sealed record AboutRow(string Glyph, string Label, string Value)
 {
     public string AccessibleName => $"{Label}: {Value}";
+}
+
+/// <summary>One folder of the app, with its size.</summary>
+public sealed record FolderRow(string Kind, string Path, string Size)
+{
+    public string AccessibleName => $"{Kind}: {Path}, {Size}";
+    public string RevealName => $"Open {Path} in File Explorer";
 }
 
 /// <summary>One process of the app, with what it is using right now.</summary>
@@ -88,6 +96,16 @@ public sealed partial class AppDetailViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool HasItems { get; set; }
+
+    // From the installed list: empty for something Windows does not list as installed.
+    [ObservableProperty]
+    public partial IReadOnlyList<FolderRow> Folders { get; set; } = [];
+
+    [ObservableProperty]
+    public partial bool HasFolders { get; set; }
+
+    [ObservableProperty]
+    public partial string StorageSummary { get; set; } = "";
 
     [ObservableProperty]
     public partial bool CanEndApp { get; set; }
@@ -175,6 +193,7 @@ public sealed partial class AppDetailViewModel : ObservableObject
         HasNote = Note.Length > 0;
         HasItems = group.Items.Count > 0;
         UpdateUsage();
+        UpdateStorage();
         _ = LoadIconAsync(group.IconPath);
 
         foreach (var kind in group.Items.GroupBy(i => i.Item.Kind).OrderBy(g => g.Key))
@@ -192,6 +211,23 @@ public sealed partial class AppDetailViewModel : ObservableObject
     }
 
     private async Task LoadIconAsync(string? path) => Icon = await AppServices.Icons.GetAsync(path);
+
+    /// <summary>Call when the installed list or its sizes change.</summary>
+    public void UpdateStorage()
+    {
+        if (AppServices.State.FindGroup(_groupId) is { } group)
+            About = AboutRows(group);
+
+        var installed = AppServices.Inventory.Find(_groupId);
+        Folders = installed?.FolderBytes
+            .Select(f => new FolderRow(
+                f.Folder.Role == FolderRole.Program ? "App files" : "Data",
+                f.Folder.Path,
+                f.Bytes is { } bytes ? UsageText.Memory(bytes) : "Measuring"))
+            .ToList() ?? [];
+        HasFolders = Folders.Count > 0;
+        StorageSummary = installed is null ? "" : InstalledText.Size(installed);
+    }
 
     /// <summary>Call after each measurement.</summary>
     public void UpdateUsage()
@@ -282,6 +318,16 @@ public sealed partial class AppDetailViewModel : ObservableObject
             new("\uE768", "Items running at the last scan", group.RunningCount.ToString()),
         };
 
+        if (AppServices.Inventory.Find(group.Id) is { } installed)
+        {
+            var breakdown = InstalledText.Breakdown(installed);
+            rows.Add(new AboutRow(
+                "\uEDA2", "Takes up",
+                breakdown.Length > 0 ? $"{InstalledText.Size(installed)} ({breakdown})" : InstalledText.Size(installed)));
+            if (InstalledText.LastOpened(installed.Usage) is { Length: > 0 } opened)
+                rows.Add(new AboutRow("\uE823", "Last opened", opened));
+        }
+
         // Installers often register the same app twice (32- and 64-bit, or with and without "®").
         var sources = group.Sources
             .Select(s => (s.Kind, Name: NameTokens.CleanAppName(s.Name)))
@@ -318,7 +364,7 @@ public sealed partial class AppDetailViewModel : ObservableObject
         if (group.IsVendorBucket)
             return "The maker of these items is known, but not which of its products they belong to.";
         if (group.Items.Count == 0)
-            return "This app has not set anything to start by itself. It is listed because it is running.";
+            return "This app has not set anything to start by itself.";
         return "";
     }
 }

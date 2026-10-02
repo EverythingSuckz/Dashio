@@ -15,6 +15,23 @@ public sealed record AppSource
 
     /// <summary>Shipped as part of Windows.</summary>
     public bool IsSystem { get; init; }
+
+    /// <summary>
+    /// A part of another product that Windows leaves out of its Installed apps list, such as one
+    /// of the dozens of pieces an SDK registers.
+    /// </summary>
+    public bool IsHiddenComponent { get; init; }
+
+    /// <summary>The size Windows recorded at install time, when it recorded one. Often rough.</summary>
+    public long? EstimatedBytes { get; init; }
+
+    public DateTimeOffset? InstalledOn { get; init; }
+
+    /// <summary>For a Store package: the apps in it that can be opened, as <c>family!AppId</c>.</summary>
+    public IReadOnlyList<string> AppIds { get; init; } = [];
+
+    /// <summary>For a Store package: the program files those apps run.</summary>
+    public IReadOnlyList<string> AppPrograms { get; init; } = [];
 }
 
 /// <summary>An item together with why it was placed in its group.</summary>

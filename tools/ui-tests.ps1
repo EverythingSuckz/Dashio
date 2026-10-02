@@ -172,6 +172,34 @@ try {
         winapp ui invoke 'FilterAll' -a $AppPid -w $hwnd
     }
 
+    # ─── Installed: sizes and last opened ───
+    Test-UI 'Installed lists apps with their sizes' {
+        winapp ui invoke 'NavInstalled' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'InstalledLoading' -a $AppPid -w $hwnd --gone -t 60000 | Out-Null
+        winapp ui wait-for 'InstalledSummary' -a $AppPid -w $hwnd --value 'taking' --contains -t 10000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'The summary never showed a total.' }
+        $found = winapp ui search 'B' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
+        $script:installedRows = @($found.matches | Where-Object { $_.type -eq 'ListItem' -and $_.name -match '\d (MB|GB)' })
+        if ($script:installedRows.Count -lt 3) { throw "Only $($script:installedRows.Count) apps show a size." }
+        $global:LASTEXITCODE = 0
+    }
+    Save-Shot '00-installed'
+    Test-UI 'The Not opened lately tab says what it rests on' {
+        winapp ui invoke 'InstalledUnused' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'InstalledEvidence' -a $AppPid -w $hwnd -t 5000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'No explanation was shown.' }
+        Save-Shot '00-not-opened'
+        winapp ui invoke 'InstalledAll' -a $AppPid -w $hwnd
+    }
+    Test-UI 'An installed app shows where its files are' {
+        $found = winapp ui search 'GB' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
+        # "about 75 GB" is a size Windows recorded for an app with no folder to show.
+        $row = $found.matches | Where-Object { $_.type -eq 'ListItem' -and $_.name -notmatch 'about' } | Select-Object -First 1
+        winapp ui invoke $row.selector -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'DetailStorage' -a $AppPid -w $hwnd --value 'B' --contains -t 8000
+    }
+    Save-Shot '00-installed-detail'
+
     # ─── First scan and shell ───
     Test-UI 'First scan finishes with a summary' {
         winapp ui invoke 'NavApps' -a $AppPid -w $hwnd | Out-Null
@@ -179,7 +207,7 @@ try {
         winapp ui wait-for 'ScanStatus' -a $AppPid -w $hwnd --gone -t 60000 | Out-Null
         winapp ui wait-for 'AppsSummary' -a $AppPid -w $hwnd --value 'page per app' --contains -t 5000
     }
-    foreach ($id in 'NavApps', 'NavAllItems', 'NavHistory', 'SearchBox', 'RefreshButton', 'ViewMenu',
+    foreach ($id in 'NavApps', 'NavInstalled', 'NavAllItems', 'NavHistory', 'SearchBox', 'RefreshButton', 'ViewMenu',
         'HomeButton', 'LayoutToggle', 'FilterAll', 'FilterAtStartup', 'FilterNotInTaskManager') {
         Test-UI "$id exists" { winapp ui wait-for $id -a $AppPid -w $hwnd -t 3000 }
     }
@@ -307,6 +335,7 @@ try {
         winapp ui wait-for 'ThemeBox' -a $AppPid -w $hwnd --value 'Use Windows setting' -t 5000
     }
     Test-UI 'Settings has the admin scan' { winapp ui wait-for 'AdminScanButton' -a $AppPid -w $hwnd -t 3000 }
+    Test-UI 'Settings has the last-opened check' { winapp ui wait-for 'UsageCheckButton' -a $AppPid -w $hwnd -t 3000 }
     Test-UI 'Settings has the refresh interval' {
         winapp ui wait-for 'RefreshBox' -a $AppPid -w $hwnd --value '2 seconds' -t 3000
     }

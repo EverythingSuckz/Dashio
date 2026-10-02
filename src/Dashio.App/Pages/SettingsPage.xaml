@@ -74,6 +74,25 @@
                     </StackPanel>
                 </controls:SettingsCard>
 
+                <controls:SettingsCard Description="Windows keeps a list of the programs it has run lately, which only an administrator may read. This asks once and uses it to tell which apps you have not opened." Header="Check when apps were last opened">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE823;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <ProgressRing
+                            x:Name="UsageCheckRing"
+                            Width="16"
+                            Height="16"
+                            IsActive="False" />
+                        <Button
+                            x:Name="UsageCheckButton"
+                            AutomationProperties.AutomationId="UsageCheckButton"
+                            AutomationProperties.Name="Check when apps were last opened"
+                            Click="UsageCheck_Click"
+                            Content="Check" />
+                    </StackPanel>
+                </controls:SettingsCard>
+
                 <TextBlock
                     Margin="0,20,0,4"
                     AutomationProperties.HeadingLevel="Level2"

@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Dashio.App.Pages.InstalledPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Dashio.App"
+    xmlns:vm="using:Dashio.App.ViewModels"
+    NavigationCacheMode="Required">
+
+    <Page.Resources>
+        <!-- The right-click menu of a row. One menu serves every row; it is filled in as it opens. -->
+        <MenuFlyout x:Key="RowMenu" Opening="RowMenu_Opening">
+            <MenuFlyoutItem Click="OpenRow_Click" Text="Open">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE8A7;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+            <MenuFlyoutItem
+                Click="RevealRow_Click"
+                Tag="file"
+                Text="Show in File Explorer">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE838;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+            <MenuFlyoutItem Click="CopyRowName_Click" Text="Copy name">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE8C8;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+        </MenuFlyout>
+    </Page.Resources>
+
+    <Grid x:Name="Shell" HorizontalAlignment="Center">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <StackPanel
+            Grid.ColumnSpan="2"
+            Margin="{StaticResource PageHeaderMargin}"
+            Spacing="4">
+            <TextBlock
+                AutomationProperties.HeadingLevel="Level1"
+                Style="{StaticResource TitleTextBlockStyle}"
+                Text="Installed" />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock
+                    AutomationProperties.AutomationId="InstalledSummary"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource BodyTextBlockStyle}"
+                    Text="{x:Bind ViewModel.Summary, Mode=OneWay}"
+                    TextWrapping="Wrap" />
+                <ProgressRing
+                    Width="16"
+                    Height="16"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Measuring folders"
+                    IsActive="{x:Bind ViewModel.IsMeasuring, Mode=OneWay}" />
+            </StackPanel>
+        </StackPanel>
+
+        <Grid
+            Grid.Row="1"
+            Grid.ColumnSpan="2"
+            Margin="24,16,36,8"
+            ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <SelectorBar
+                x:Name="FilterBar"
+                AutomationProperties.Name="Filter installed apps"
+                SelectionChanged="FilterBar_SelectionChanged">
+                <SelectorBarItem
+                    x:Name="FilterAll"
+                    AutomationProperties.AutomationId="InstalledAll"
+                    IsSelected="True"
+                    Text="{x:Bind ViewModel.AllLabel, Mode=OneWay}" />
+                <SelectorBarItem
+                    x:Name="FilterUnused"
+                    AutomationProperties.AutomationId="InstalledUnused"
+                    Text="{x:Bind ViewModel.UnusedLabel, Mode=OneWay}" />
+            </SelectorBar>
+            <DropDownButton
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.AutomationId="InstalledSortMenu"
+                AutomationProperties.Name="Sort">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontSize="14" Glyph="&#xE8CB;" />
+                    <TextBlock Text="Sort" />
+                </StackPanel>
+                <DropDownButton.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                        <RadioMenuFlyoutItem
+                            AutomationProperties.AutomationId="InstalledSortSize"
+                            Click="SortSize_Click"
+                            GroupName="InstalledSort"
+                            IsChecked="True"
+                            Text="Largest first" />
+                        <RadioMenuFlyoutItem
+                            AutomationProperties.AutomationId="InstalledSortName"
+                            Click="SortName_Click"
+                            GroupName="InstalledSort"
+                            Text="Name" />
+                        <RadioMenuFlyoutItem
+                            AutomationProperties.AutomationId="InstalledSortLastOpened"
+                            Click="SortLastOpened_Click"
+                            GroupName="InstalledSort"
+                            Text="Longest unopened first" />
+                    </MenuFlyout>
+                </DropDownButton.Flyout>
+            </DropDownButton>
+        </Grid>
+
+        <!-- What "not opened lately" rests on. Shown on that tab. -->
+        <InfoBar
+            x:Name="EvidenceBar"
+            Title="{x:Bind ViewModel.EvidenceTitle, Mode=OneWay}"
+            Grid.Row="2"
+            Margin="36,0,36,8"
+            AutomationProperties.AutomationId="InstalledEvidence"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.ShowEvidence, Mode=OneWay}"
+            Message="{x:Bind ViewModel.EvidenceText, Mode=OneWay}"
+            Severity="Informational">
+            <InfoBar.ActionButton>
+                <Button
+                    x:Name="AdminCheckButton"
+                    AutomationProperties.AutomationId="InstalledAdminCheck"
+                    Click="AdminCheck_Click"
+                    Content="Check with administrator rights"
+                    Visibility="{x:Bind local:Ui.Visible(ViewModel.NeedsAdminCheck), Mode=OneWay}" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
+        <ListView
+            x:Name="AppList"
+            Grid.Row="3"
+            Padding="36,0,36,24"
+            AutomationProperties.AutomationId="InstalledList"
+            AutomationProperties.Name="Installed apps"
+            IsItemClickEnabled="True"
+            ItemClick="Row_Click"
+            ItemsSource="{x:Bind ViewModel.Rows}"
+            SelectionMode="None"
+            Visibility="{x:Bind local:Ui.Collapsed(ViewModel.IsLoading), Mode=OneWay}">
+            <ListView.ItemContainerStyle>
+                <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                    <Setter Property="Padding" Value="16,0,16,0" />
+                    <Setter Property="MinHeight" Value="56" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="ContextFlyout" Value="{StaticResource RowMenu}" />
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="vm:InstalledRowViewModel">
+                    <Grid AutomationProperties.Name="{x:Bind AccessibleName, Mode=OneWay}" ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="168" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid
+                            Width="32"
+                            Height="32"
+                            VerticalAlignment="Center">
+                            <FontIcon
+                                FontSize="24"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Glyph="&#xECAA;"
+                                Visibility="{x:Bind local:Ui.VisibleIfNull(Icon), Mode=OneWay}" />
+                            <Image Source="{x:Bind Icon, Mode=OneWay}" Stretch="Uniform" />
+                        </Grid>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock
+                                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                Text="{x:Bind Name, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind Publisher, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <!-- An app nobody opens that still starts things is the one worth a look. -->
+                        <Border
+                            Grid.Column="2"
+                            Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
+                            Style="{StaticResource BadgeStyle}"
+                            Visibility="{x:Bind local:Ui.Visible(HasStartup), Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <FontIcon
+                                    FontSize="12"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Glyph="&#xE7E8;" />
+                                <TextBlock
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Style="{StaticResource BadgeTextStyle}"
+                                    Text="{x:Bind StartupText, Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Grid
+                            Grid.Column="3"
+                            VerticalAlignment="Center"
+                            ColumnSpacing="12"
+                            ToolTipService.ToolTip="{x:Bind SizeTip, Mode=OneWay}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ProgressBar
+                                VerticalAlignment="Center"
+                                AutomationProperties.AccessibilityView="Raw"
+                                Maximum="100"
+                                Value="{x:Bind Share, Mode=OneWay}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                MinWidth="84"
+                                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                Text="{x:Bind SizeText, Mode=OneWay}"
+                                TextAlignment="Right" />
+                        </Grid>
+
+                        <StackPanel
+                            Grid.Column="4"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="6">
+                            <FontIcon
+                                FontSize="14"
+                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                Glyph="&#xE823;"
+                                Visibility="{x:Bind local:Ui.Visible(IsUnused), Mode=OneWay}" />
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind LastOpenedText, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <FontIcon
+                            Grid.Column="5"
+                            FontSize="12"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Glyph="&#xE76C;" />
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <!-- Side panels: the disk, and how to read the list. -->
+        <StackPanel
+            x:Name="SidePanel"
+            Grid.Row="2"
+            Grid.RowSpan="2"
+            Grid.Column="1"
+            Width="380"
+            Padding="0,0,36,24"
+            VerticalAlignment="Top"
+            Spacing="16"
+            Visibility="Collapsed">
+                <Border Style="{StaticResource PanelStyle}">
+                    <StackPanel Padding="20" Spacing="12">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource IconTileStyle}">
+                                <FontIcon
+                                    FontSize="18"
+                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                    Glyph="&#xEDA2;" />
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock
+                                    AutomationProperties.HeadingLevel="Level2"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Windows drive" />
+                                <TextBlock
+                                    AutomationProperties.AutomationId="InstalledDisk"
+                                    Style="{StaticResource SubtitleTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.DiskValue, Mode=OneWay}" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.DiskDetail, Mode=OneWay}" />
+                            </StackPanel>
+                        </Grid>
+                        <ProgressBar
+                            AutomationProperties.Name="Share of the Windows drive in use"
+                            Maximum="100"
+                            Value="{x:Bind ViewModel.DiskUsedPercent, Mode=OneWay}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource PanelStyle}">
+                    <StackPanel>
+                        <TextBlock
+                            Padding="20,20,20,16"
+                            AutomationProperties.HeadingLevel="Level2"
+                            Style="{StaticResource SubtitleTextBlockStyle}"
+                            Text="Good to know" />
+                        <Grid Style="{StaticResource PanelRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource RowIconTileStyle}">
+                                <FontIcon FontSize="20" Glyph="&#xEDA2;" />
+                            </Border>
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Size" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="The app's own folder plus the data it keeps in your user folders. Data that cannot be tied to one app is not counted."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid Style="{StaticResource PanelRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource RowIconTileStyle}">
+                                <FontIcon FontSize="20" Glyph="&#xE823;" />
+                            </Border>
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Last opened" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="When the app itself was last started, not its background services. Dashio also notes which apps are open while it is running."
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid Style="{StaticResource PanelRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource RowIconTileStyle}">
+                                <FontIcon FontSize="20" Glyph="&#xE74D;" />
+                            </Border>
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="4">
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Removing an app" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Dashio never deletes anything. Uninstall from Windows Settings."
+                                    TextWrapping="Wrap" />
+                                <HyperlinkButton
+                                    Margin="-12,0,0,0"
+                                    AutomationProperties.AutomationId="InstalledOpenSettings"
+                                    Click="OpenWindowsSettings_Click"
+                                    Content="Open Installed apps in Settings" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+        </StackPanel>
+
+        <StackPanel
+            Grid.Row="3"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="16"
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.IsLoading), Mode=OneWay}">
+            <ProgressRing
+                Width="32"
+                Height="32"
+                IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                AutomationProperties.AutomationId="InstalledLoading"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="Finding what is installed" />
+        </StackPanel>
+
+        <StackPanel
+            Grid.Row="3"
+            MaxWidth="360"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="8"
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.IsEmpty), Mode=OneWay}">
+            <FontIcon
+                FontSize="32"
+                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                Glyph="&#xE721;" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                Text="{x:Bind ViewModel.EmptyTitle, Mode=OneWay}" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind ViewModel.EmptyText, Mode=OneWay}"
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+        </StackPanel>
+    </Grid>
+</Page>

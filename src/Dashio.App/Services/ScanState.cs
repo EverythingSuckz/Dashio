@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Dashio.Core.AdminScan;
 using Dashio.Core.Journal;
 using Dashio.Core.Models;
+using Dashio.Core.Processes;
 
 namespace Dashio.App.Services;
 
@@ -48,6 +49,9 @@ public sealed partial class ScanState : ObservableObject
             AdminScanDone = false;
             await RegroupAsync();
             HasScanned = true;
+            // Sizes and shortcuts only change with what is installed, so they follow full scans only.
+            if (Attributor is not null)
+                AppServices.Inventory.Rebuild(_sources, Attributor);
         }
         catch (Exception e)
         {
@@ -111,13 +115,19 @@ public sealed partial class ScanState : ObservableObject
         var items = _items;
         var sources = _sources;
         Groups = await Task.Run(() => AppServices.Engine.Group(items, sources));
-        AppServices.Monitor.UseScan(Groups, sources);
+        var groups = Groups;
+        Attributor = await Task.Run(() => new ProcessAttributor(groups, sources));
+        AppServices.Monitor.UseScan(Attributor);
     }
 
-    /// <summary>A group from the scan, or an app that is only known because it is running.</summary>
+    /// <summary>Ties processes, folders and installed entries to the groups of the latest scan.</summary>
+    public ProcessAttributor? Attributor { get; private set; }
+
+    /// <summary>A group from the scan, or an app that is only known because it is running or installed.</summary>
     public AppGroup? FindGroup(string groupId) =>
         Groups.FirstOrDefault(g => g.Id.Equals(groupId, StringComparison.OrdinalIgnoreCase))
-        ?? AppServices.Monitor.FindGroup(groupId);
+        ?? AppServices.Monitor.FindGroup(groupId)
+        ?? AppServices.Inventory.FindGroup(groupId);
 
     public AppGroup? GroupOfItem(string itemId) =>
         Groups.FirstOrDefault(g => g.Items.Any(i => i.Item.Id.Equals(itemId, StringComparison.OrdinalIgnoreCase)));

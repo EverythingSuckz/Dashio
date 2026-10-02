@@ -38,6 +38,28 @@ A running program is tied to an app by the services it hosts, the folder it runs
 signature, never by a shared word in its name. Apps that run but start nothing by themselves
 appear on Overview only; the Apps page stays a list of what starts by itself.
 
+## What is installed
+
+The Installed page lists every app Windows shows as installed, with how much room it takes and
+when it was last opened.
+
+**Size** is the app's own folder plus the data it keeps elsewhere: a Store app's data folder,
+and folders in your app data that carry the app's name or hold its files. Data that cannot be
+tied to one app is left out, so a figure can be low but should not be padded. Folders are
+measured in the background and remembered for twelve hours. An app with no folder to measure
+shows the size Windows recorded when it was installed, marked "about".
+
+**Last opened** is about the app itself, not its background services. Only apps with something
+to open, a Start menu shortcut or a Store app entry, are judged, so drivers and runtimes are
+never called unused. Dashio uses what it can:
+
+- the apps it sees open while it is running, which it remembers;
+- Windows' own list of launched apps, when Windows is still keeping it (on some PCs it is not);
+- the list of programs Windows has run lately, which needs the administrator check in Settings.
+
+"Not opened lately" only appears when one of the last two can vouch for it, and it says how far
+back the records go. Dashio does not uninstall anything; the page links to Windows Settings.
+
 ## Ending what is running
 
 **End app** closes everything an app is running, and **End** on a single process closes just

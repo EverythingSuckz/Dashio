@@ -300,7 +300,7 @@ public sealed class AttributionEngine
         return prefix.Split(' ').Length >= 2 ? NameTokens.CleanDisplayName(prefix) : NameTokens.CleanDisplayName(displayNames[0]);
     }
 
-    private static string CommonWordPrefix(IReadOnlyList<string> names)
+    internal static string CommonWordPrefix(IReadOnlyList<string> names)
     {
         var first = names[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var count = first.Length;

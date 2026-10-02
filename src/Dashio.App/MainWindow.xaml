@@ -123,6 +123,15 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
+                    x:Name="InstalledItem"
+                    AutomationProperties.AutomationId="NavInstalled"
+                    Content="Installed"
+                    Tag="installed">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE74C;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem
                     x:Name="AllItemsItem"
                     AutomationProperties.AutomationId="NavAllItems"
                     Content="All items"

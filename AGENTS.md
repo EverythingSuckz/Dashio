@@ -58,6 +58,11 @@ and built-in COM interop, and the helper shares the app's runtime files. Sort th
   call without opening any of them, so it needs no admin rights. `ProcessAttributor` is pure and
   places a process in a group from the scan or in a group of its own; check changes against
   `--filter "FullyQualifiedName~LiveProcessReport"`. It must never change which group an item is in.
+- `Dashio.Core/Inventory` lists what is installed. `InventoryBuilder` and `UsageResolver` are pure;
+  check changes against `--filter "FullyQualifiedName~LiveInventoryReport"`. Folders and installed
+  entries get their app from `ProcessAttributor`, so ids agree across Overview, Apps and Installed.
+  A folder nobody can be shown to own stays unclaimed. An app is only called "not opened lately"
+  when a record that would have noticed it exists (`UsageResolver.CoversFrom`); never guess.
 - `ResourceMonitor` (app) runs the measuring loop off the UI thread and raises `Updated` on it.
   Pages update rows in place on each tick; they do not rebuild or re-sort lists, so rows do not jump.
 - `Dashio.App` uses `x:Bind` with explicit modes, `CommunityToolkit.Mvvm` partial properties,
