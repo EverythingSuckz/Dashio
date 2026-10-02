@@ -10,6 +10,7 @@ public enum AppFilter
     All,
     AtStartup,
     NotInTaskManager,
+    AdminScan,
 }
 
 public enum AppSort
@@ -45,6 +46,12 @@ public sealed partial class AppsViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string NotInTaskManagerLabel { get; set; } = "Not in Task Manager";
+
+    [ObservableProperty]
+    public partial string AdminScanLabel { get; set; } = "Admin scan";
+
+    [ObservableProperty]
+    public partial bool HasAdminFound { get; set; }
 
     // The three headline numbers.
     [ObservableProperty]
@@ -90,6 +97,11 @@ public sealed partial class AppsViewModel : ObservableObject
         AllLabel = $"All ({visible.Count})";
         AtStartupLabel = $"At startup ({atStartup.Count})";
         NotInTaskManagerLabel = $"Not in Task Manager ({hidden.Count})";
+        var adminFound = visible
+            .Where(g => g.Items.Any(i => i.Item.VisibleOnlyWithAdmin || i.Item.IsHiddenTask))
+            .ToList();
+        AdminScanLabel = $"Admin scan ({adminFound.Count})";
+        HasAdminFound = adminFound.Count > 0 || Filter == AppFilter.AdminScan;
         Summary = search.Length > 0
             ? $"{ItemText.Plural(visible.Count, "app")} {(visible.Count == 1 ? "matches" : "match")} “{search}”."
             : DefaultSummary;
@@ -113,6 +125,7 @@ public sealed partial class AppsViewModel : ObservableObject
         {
             AppFilter.AtStartup => atStartup,
             AppFilter.NotInTaskManager => hidden,
+            AppFilter.AdminScan => adminFound,
             _ => visible,
         };
 

@@ -189,11 +189,27 @@
                             <ColumnDefinition Width="64" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            Style="{StaticResource BodyStrongTextBlockStyle}"
-                            Text="{x:Bind Name}"
-                            TextTrimming="CharacterEllipsis" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                Text="{x:Bind Name}"
+                                TextTrimming="CharacterEllipsis" />
+                            <FontIcon
+                                Grid.Column="1"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="{x:Bind AdminFoundLabel}"
+                                FontSize="14"
+                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                Glyph="&#xE7EF;"
+                                ToolTipService.ToolTip="{x:Bind AdminFoundLabel}"
+                                Visibility="{x:Bind local:Ui.Visible(IsAdminFound)}" />
+                        </Grid>
 
                         <StackPanel
                             Grid.Column="1"

@@ -100,6 +100,7 @@ public sealed partial class AppsPage : Page
     {
         var filter = sender.SelectedItem == FilterAtStartup ? AppFilter.AtStartup
             : sender.SelectedItem == FilterNotInTaskManager ? AppFilter.NotInTaskManager
+            : sender.SelectedItem == FilterAdminScan ? AppFilter.AdminScan
             : AppFilter.All;
         if (filter == ViewModel.Filter)
             return;

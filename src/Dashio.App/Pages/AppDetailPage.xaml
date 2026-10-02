@@ -237,6 +237,19 @@
                                 Style="{StaticResource CaptionTextBlockStyle}"
                                 Text="{x:Bind PendingLabel, Mode=OneWay}" />
                         </StackPanel>
+                        <StackPanel
+                            Orientation="Horizontal"
+                            Spacing="4"
+                            Visibility="{x:Bind local:Ui.Visible(IsAdminFound)}">
+                            <FontIcon
+                                FontSize="12"
+                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                Glyph="&#xE7EF;" />
+                            <TextBlock
+                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind AdminFoundLabel}" />
+                        </StackPanel>
                     </StackPanel>
                 </controls:SettingsExpander.Description>
 

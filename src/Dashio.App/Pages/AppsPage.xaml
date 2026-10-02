@@ -117,6 +117,22 @@
                         </StackPanel>
                     </Border>
                     <Border
+                        Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
+                        Style="{StaticResource BadgeStyle}"
+                        ToolTipService.ToolTip="{x:Bind AdminFoundTip}"
+                        Visibility="{x:Bind local:Ui.Visible(IsAdminFound)}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <FontIcon
+                                FontSize="12"
+                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                Glyph="&#xE7EF;" />
+                            <TextBlock
+                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                Style="{StaticResource BadgeTextStyle}"
+                                Text="{x:Bind AdminFoundText}" />
+                        </StackPanel>
+                    </Border>
+                    <Border
                         Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
                         Style="{StaticResource BadgeStyle}"
                         Visibility="{x:Bind local:Ui.Visible(IsRunning)}">
@@ -227,6 +243,22 @@
                                     Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                     Style="{StaticResource BadgeTextStyle}"
                                     Text="Not in Task Manager" />
+                            </StackPanel>
+                        </Border>
+                        <Border
+                            Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
+                            Style="{StaticResource BadgeStyle}"
+                            ToolTipService.ToolTip="{x:Bind AdminFoundTip}"
+                            Visibility="{x:Bind local:Ui.Visible(IsAdminFound)}">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <FontIcon
+                                    FontSize="12"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Glyph="&#xE7EF;" />
+                                <TextBlock
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Style="{StaticResource BadgeTextStyle}"
+                                    Text="{x:Bind AdminFoundText}" />
                             </StackPanel>
                         </Border>
                         <Border
@@ -414,6 +446,12 @@
                     x:Name="FilterNotInTaskManager"
                     AutomationProperties.AutomationId="FilterNotInTaskManager"
                     Text="{x:Bind ViewModel.NotInTaskManagerLabel, Mode=OneWay}" />
+                <!-- Appears once the admin scan has found something. -->
+                <SelectorBarItem
+                    x:Name="FilterAdminScan"
+                    AutomationProperties.AutomationId="FilterAdminScan"
+                    Text="{x:Bind ViewModel.AdminScanLabel, Mode=OneWay}"
+                    Visibility="{x:Bind local:Ui.Visible(ViewModel.HasAdminFound), Mode=OneWay}" />
             </SelectorBar>
 
             <!-- Switches between rows and tiles. It shows the view it will switch to. -->

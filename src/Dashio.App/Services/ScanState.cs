@@ -92,11 +92,18 @@ public sealed partial class ScanState : ObservableObject
         await RegroupAsync();
         Changed?.Invoke(this, EventArgs.Empty);
 
+        if (added.Count == 0)
+            return ("The admin scan found no tasks beyond the ones already listed.", false);
+
         var hidden = added.Count(i => i.IsHiddenTask);
-        return added.Count == 0
-            ? ("The admin scan found no tasks beyond the ones already listed.", false)
-            : ($"The admin scan found {added.Count} more scheduled task{(added.Count == 1 ? "" : "s")}" +
-               (hidden > 0 ? $", {hidden} of them hidden from Task Scheduler." : "."), false);
+        var message = $"The admin scan found {added.Count} more scheduled task{(added.Count == 1 ? "" : "s")}" +
+            (hidden > 0 ? $", {hidden} of them hidden from Task Scheduler." : ".");
+
+        // Without this the number in the message looks far larger than what appears in the list.
+        var partOfWindows = added.Count(i => i.IsProtected);
+        if (partOfWindows > 0 && !AppServices.Settings.ShowWindowsComponents)
+            message += $" {partOfWindows} belong to Windows and stay out of the list unless you choose View, Show Windows components.";
+        return (message + " Apps with a newly found task carry an Admin scan badge.", false);
     }
 
     private async Task RegroupAsync()

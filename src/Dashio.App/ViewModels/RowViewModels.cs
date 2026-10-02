@@ -39,6 +39,14 @@ public sealed partial class AppRowViewModel : ObservableObject
     public bool StartsWithWindows => StartsCount > 0;
     public bool IsHidden => Group.HiddenFromTaskManager;
 
+    public int AdminFoundCount => Group.Items.Count(i => i.Item.VisibleOnlyWithAdmin || i.Item.IsHiddenTask);
+    public bool IsAdminFound => AdminFoundCount > 0;
+    public bool HasHiddenTask => Group.Items.Any(i => i.Item.IsHiddenTask);
+    public string AdminFoundText => HasHiddenTask ? "Hidden task" : "Admin scan";
+    public string AdminFoundTip => HasHiddenTask
+        ? "Has a task that Task Scheduler does not list. Only the admin scan could see it."
+        : $"{ItemText.Plural(AdminFoundCount, "item")} found only by the admin scan";
+
     public string RunningText => $"{RunningCount} running";
     public string StartsText => StartsCount == ItemCount
         ? $"{ItemText.Plural(StartsCount, "item")} at startup"
@@ -55,6 +63,8 @@ public sealed partial class AppRowViewModel : ObservableObject
                 parts.Add(RunningText);
             if (IsHidden)
                 parts.Add("not shown in Task Manager");
+            if (IsAdminFound)
+                parts.Add(HasHiddenTask ? "has a hidden task" : "found by the admin scan");
             return string.Join(", ", parts);
         }
     }
@@ -173,6 +183,8 @@ public sealed partial class ItemRowViewModel : ObservableObject
     public bool IsWindowsComponent => Item.IsProtected;
     public bool IsHiddenTask => Item.IsHiddenTask;
     public bool IsAdminOnly => Item.VisibleOnlyWithAdmin && !Item.IsHiddenTask;
+    public bool IsAdminFound => Item.VisibleOnlyWithAdmin || Item.IsHiddenTask;
+    public string AdminFoundLabel => Item.IsHiddenTask ? "Hidden task" : "Found by admin scan";
     public bool IsMissingFile => Item.Evidence is { Exists: false };
 
     /// <summary>A service installed by a driver package may be needed by the hardware.</summary>
