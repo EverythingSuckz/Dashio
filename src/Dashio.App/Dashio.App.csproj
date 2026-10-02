@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(DashioTargetFramework)</TargetFramework>
+    <TargetPlatformMinVersion>$(DashioMinVersion)</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>$(DashioMinVersion)</SupportedOSPlatformVersion>
+    <RootNamespace>Dashio.App</RootNamespace>
+    <AssemblyName>Dashio</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+
+    <!--
+      Unpackaged on purpose. A packaged app's registry writes go to a private copy, so
+      switching a startup entry off would not change the real one.
+    -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\AppIcon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="*" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dashio.Core\Dashio.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The elevated helper is a separate exe that must sit next to the app. -->
+  <Target Name="BuildAndCopyHelper" AfterTargets="Build">
+    <!-- The helper's output folder depends on how the build was started, so ask the build where it went. -->
+    <MSBuild Projects="..\Dashio.Helper\Dashio.Helper.csproj" Targets="Build" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="HelperAssembly" />
+    </MSBuild>
+    <PropertyGroup>
+      <HelperOutputFolder>@(HelperAssembly->'%(RootDir)%(Directory)')</HelperOutputFolder>
+    </PropertyGroup>
+    <ItemGroup>
+      <HelperFiles Include="$(HelperOutputFolder)Dashio.Helper.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(HelperFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

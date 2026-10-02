@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Dashio.App.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls">
+
+    <ScrollViewer>
+        <Grid x:Name="Shell" HorizontalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MaxWidth="1112" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Margin="36,24,36,24" Spacing="4">
+                <TextBlock
+                    Margin="0,0,0,12"
+                    AutomationProperties.HeadingLevel="Level1"
+                    Style="{StaticResource TitleTextBlockStyle}"
+                    Text="Settings" />
+
+                <TextBlock
+                    Margin="0,0,0,4"
+                    AutomationProperties.HeadingLevel="Level2"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="Appearance" />
+                <controls:SettingsCard Description="Choose light or dark, or follow Windows." Header="Theme">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE790;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        x:Name="ThemeBox"
+                        MinWidth="180"
+                        AutomationProperties.AutomationId="ThemeBox"
+                        AutomationProperties.Name="Theme"
+                        SelectionChanged="ThemeBox_SelectionChanged">
+                        <ComboBoxItem Content="Use Windows setting" Tag="Default" />
+                        <ComboBoxItem Content="Light" Tag="Light" />
+                        <ComboBoxItem Content="Dark" Tag="Dark" />
+                    </ComboBox>
+                </controls:SettingsCard>
+
+                <TextBlock
+                    Margin="0,20,0,4"
+                    AutomationProperties.HeadingLevel="Level2"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="What is shown" />
+                <controls:SettingsCard Description="Lists the parts of Windows itself. They are shown for reference and cannot be changed." Header="Show Windows components">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE890;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ToggleSwitch
+                        x:Name="ShowWindowsSwitch"
+                        MinWidth="0"
+                        AutomationProperties.AutomationId="ShowWindowsSwitch"
+                        AutomationProperties.Name="Show Windows components"
+                        Toggled="ShowWindows_Toggled" />
+                </controls:SettingsCard>
+                <controls:SettingsCard Description="Some scheduled tasks are hidden from ordinary apps. This asks for administrator permission once, then lists those tasks until the next scan." Header="Scan with administrator rights">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xEA18;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <ProgressRing
+                            x:Name="AdminScanRing"
+                            Width="16"
+                            Height="16"
+                            IsActive="False" />
+                        <Button
+                            x:Name="AdminScanButton"
+                            AutomationProperties.AutomationId="AdminScanButton"
+                            Click="AdminScan_Click"
+                            Content="Scan" />
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <TextBlock
+                    Margin="0,20,0,4"
+                    AutomationProperties.HeadingLevel="Level2"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="Your data" />
+                <controls:SettingsCard x:Name="LogCard" Header="Change log">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE81C;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button
+                        AutomationProperties.AutomationId="OpenLogFolderButton"
+                        AutomationProperties.Name="Open the change log folder"
+                        Click="OpenLogFolder_Click"
+                        Content="Open folder" />
+                </controls:SettingsCard>
+
+                <TextBlock
+                    Margin="0,20,0,4"
+                    AutomationProperties.HeadingLevel="Level2"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="About" />
+                <controls:SettingsExpander
+                    x:Name="AboutExpander"
+                    Header="Dashio"
+                    IsExpanded="True">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <ImageIcon Source="ms-appx:///Assets/AppIcon.ico" />
+                    </controls:SettingsExpander.HeaderIcon>
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard
+                            HorizontalContentAlignment="Left"
+                            ContentAlignment="Vertical"
+                            Header="What it does">
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="Shows everything each app has set up to start by itself, and lets you switch those things off and back on. It only switches; it never deletes." />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard
+                            HorizontalContentAlignment="Left"
+                            ContentAlignment="Vertical"
+                            Header="Privacy">
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="Dashio never connects to the internet and collects nothing. Everything it reads stays on this PC." />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard Header="License">
+                            <TextBlock Style="{StaticResource DetailValueStyle}" Text="Open source, MIT License" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

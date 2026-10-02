@@ -1,0 +1,11 @@
+{
+  "publisherAliases": [
+    { "from": "Rivet Networks", "to": "Intel" }
+  ],
+  "itemRules": [
+    { "nameRegex": "^Acer", "publisher": "Acer" }
+  ],
+  "groupRenames": [
+    { "nameRegex": "^Intel Killer Performance Suite$", "name": "Intel Killer" }
+  ]
+}

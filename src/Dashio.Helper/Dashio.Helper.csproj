@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(DashioTargetFramework)</TargetFramework>
+    <TargetPlatformMinVersion>$(DashioMinVersion)</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>$(DashioMinVersion)</SupportedOSPlatformVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Same runtime as the app it sits beside, so both load the same Windows-specific library files. -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dashio.Core\Dashio.Core.csproj" />
+    <InternalsVisibleTo Include="Dashio.Core.Tests" />
+  </ItemGroup>
+
+</Project>

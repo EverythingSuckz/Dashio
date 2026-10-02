@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Dashio.App/Dashio.App.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/Dashio.Core/Dashio.Core.csproj" />
+    <Project Path="src/Dashio.Helper/Dashio.Helper.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Dashio.Core.Tests/Dashio.Core.Tests.csproj" />
+  </Folder>
+</Solution>

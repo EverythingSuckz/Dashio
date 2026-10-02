@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="Dashio.App.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Page metrics, on the 4 px grid. Page width is set in code; see Ui.FitToPage. -->
+            <x:Double x:Key="SidePanelWidth">344</x:Double>
+            <Thickness x:Key="PageHeaderMargin">36,24,36,0</Thickness>
+            <Thickness x:Key="PageContentMargin">36,0,36,24</Thickness>
+
+            <!-- A titled panel, like the ones on the Windows Settings home page. -->
+            <Style x:Key="PanelStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="{StaticResource OverlayCornerRadius}" />
+            </Style>
+
+            <!-- The accent square behind a headline icon. -->
+            <Style x:Key="IconTileStyle" TargetType="Border">
+                <Setter Property="Width" Value="40" />
+                <Setter Property="Height" Value="40" />
+                <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+                <Setter Property="Background" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <!-- The soft square behind a row's icon in a panel. -->
+            <Style x:Key="RowIconTileStyle" TargetType="Border">
+                <Setter Property="Width" Value="40" />
+                <Setter Property="Height" Value="40" />
+                <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+                <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <!-- A row inside a panel, separated from the one above by a hairline. -->
+            <Style x:Key="PanelRowStyle" TargetType="Grid">
+                <Setter Property="Padding" Value="20,14,20,14" />
+                <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="0,1,0,0" />
+                <Setter Property="ColumnSpacing" Value="16" />
+            </Style>
+
+            <!-- A small label such as "2 running". Colours are set where it is used. -->
+            <Style x:Key="BadgeStyle" TargetType="Border">
+                <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+                <Setter Property="Padding" Value="8,2,8,3" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+            <Style
+                x:Key="BadgeTextStyle"
+                BasedOn="{StaticResource CaptionTextBlockStyle}"
+                TargetType="TextBlock">
+                <Setter Property="TextWrapping" Value="NoWrap" />
+            </Style>
+
+            <!-- Paths, commands and registry keys. -->
+            <FontFamily x:Key="CodeFontFamily">Cascadia Mono, Consolas</FontFamily>
+
+            <!-- A value shown inside an expanded item: wraps and can be copied. -->
+            <Style
+                x:Key="DetailValueStyle"
+                BasedOn="{StaticResource BodyTextBlockStyle}"
+                TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Setter Property="IsTextSelectionEnabled" Value="True" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

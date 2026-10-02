@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="Dashio.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Dashio.App"
+    Title="Dashio">
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid x:Name="RootGrid" KeyboardAcceleratorPlacementMode="Hidden">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="F5" Invoked="Refresh_Invoked" />
+            <KeyboardAccelerator
+                Key="F"
+                Invoked="Search_Invoked"
+                Modifiers="Control" />
+            <KeyboardAccelerator
+                Key="Left"
+                Invoked="Back_Invoked"
+                Modifiers="Menu" />
+        </Grid.KeyboardAccelerators>
+
+        <TitleBar
+            x:Name="AppTitleBar"
+            BackRequested="TitleBar_BackRequested"
+            IsBackButtonVisible="{x:Bind NavFrame.CanGoBack, Mode=OneWay}"
+            IsPaneToggleButtonVisible="True"
+            PaneToggleRequested="TitleBar_PaneToggleRequested">
+            <!-- The name is a button: pressing it goes back to the Apps page. -->
+            <TitleBar.LeftHeader>
+                <Button
+                    x:Name="HomeButton"
+                    Padding="8,6,12,6"
+                    AutomationProperties.AutomationId="HomeButton"
+                    AutomationProperties.Name="Dashio, go to Apps"
+                    Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                    BorderThickness="0"
+                    Click="Home_Click"
+                    ToolTipService.ToolTip="Go to Apps">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Image
+                            Width="16"
+                            Height="16"
+                            Source="ms-appx:///Assets/AppIcon.ico" />
+                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="Dashio" />
+                    </StackPanel>
+                </Button>
+            </TitleBar.LeftHeader>
+            <TitleBar.Content>
+                <AutoSuggestBox
+                    x:Name="SearchBox"
+                    MinWidth="280"
+                    MaxWidth="480"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="SearchBox"
+                    AutomationProperties.Name="Search apps and items"
+                    CornerRadius="16"
+                    PlaceholderText="Search apps and items"
+                    QueryIcon="Find"
+                    TextChanged="SearchBox_TextChanged" />
+            </TitleBar.Content>
+            <TitleBar.RightHeader>
+                <StackPanel
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="8">
+                    <ProgressRing
+                        Width="16"
+                        Height="16"
+                        AutomationProperties.Name="Scanning"
+                        IsActive="{x:Bind State.IsScanning, Mode=OneWay}" />
+                    <Button
+                        x:Name="RefreshButton"
+                        Padding="8"
+                        AutomationProperties.AutomationId="RefreshButton"
+                        AutomationProperties.Name="Scan again"
+                        Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                        BorderThickness="0"
+                        Click="Refresh_Click"
+                        IsEnabled="{x:Bind local:Ui.Not(State.IsScanning), Mode=OneWay}"
+                        ToolTipService.ToolTip="Scan again (F5)">
+                        <FontIcon FontSize="16" Glyph="&#xE72C;" />
+                    </Button>
+                </StackPanel>
+            </TitleBar.RightHeader>
+        </TitleBar>
+
+        <NavigationView
+            x:Name="NavView"
+            Grid.Row="1"
+            IsBackButtonVisible="Collapsed"
+            IsPaneToggleButtonVisible="False"
+            ItemInvoked="NavView_ItemInvoked"
+            OpenPaneLength="232"
+            SelectionChanged="NavView_SelectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem
+                    x:Name="AppsItem"
+                    AutomationProperties.AutomationId="NavApps"
+                    Content="Apps"
+                    Tag="apps">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE71D;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem
+                    x:Name="AllItemsItem"
+                    AutomationProperties.AutomationId="NavAllItems"
+                    Content="All items"
+                    Tag="items">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8FD;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem
+                    x:Name="HistoryItem"
+                    AutomationProperties.AutomationId="NavHistory"
+                    Content="History"
+                    Tag="history">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE81C;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel
+                    x:Name="BannerPanel"
+                    Padding="36,12,36,0"
+                    HorizontalAlignment="Center"
+                    Spacing="4">
+                    <!-- Shown while a batch of changes is being applied, including while the admin prompt is open. -->
+                    <InfoBar
+                        x:Name="BusyBar"
+                        AutomationProperties.AutomationId="BusyBar"
+                        AutomationProperties.Name="Applying your changes"
+                        IsClosable="False"
+                        IsIconVisible="False"
+                        IsOpen="False"
+                        Severity="Informational">
+                        <!-- A spinner takes the place of the icon, so the text goes in the content too. -->
+                        <InfoBar.Content>
+                            <Grid Margin="0,12,0,12" ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <ProgressRing
+                                    Width="20"
+                                    Height="20"
+                                    VerticalAlignment="Center"
+                                    IsActive="{x:Bind BusyBar.IsOpen, Mode=OneWay}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Applying your changes" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="If Windows is asking for administrator permission, answer it to continue."
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Grid>
+                        </InfoBar.Content>
+                    </InfoBar>
+                    <InfoBar
+                        x:Name="ErrorBar"
+                        Title="Some things could not be read"
+                        AutomationProperties.AutomationId="ErrorBar"
+                        Closing="Bar_Closing"
+                        IsOpen="False"
+                        Severity="Warning" />
+                    <InfoBar
+                        x:Name="NoticeBar"
+                        AutomationProperties.AutomationId="NoticeBar"
+                        Closing="Bar_Closing"
+                        IsOpen="False">
+                        <InfoBar.ActionButton>
+                            <Button
+                                x:Name="NoticeUndoButton"
+                                AutomationProperties.AutomationId="NoticeUndoButton"
+                                Click="NoticeUndo_Click"
+                                Content="Undo"
+                                Visibility="Collapsed" />
+                        </InfoBar.ActionButton>
+                    </InfoBar>
+                </StackPanel>
+
+                <!-- The page glides to its new place when a banner appears or goes, instead of jumping. -->
+                <Frame x:Name="NavFrame" Grid.Row="1">
+                    <Frame.Transitions>
+                        <TransitionCollection>
+                            <RepositionThemeTransition />
+                        </TransitionCollection>
+                    </Frame.Transitions>
+                </Frame>
+
+                <!-- Appears when the user has flipped switches that are not applied yet. -->
+                <Grid
+                    x:Name="PendingBar"
+                    Grid.Row="2"
+                    Padding="36,12,36,12"
+                    AutomationProperties.AutomationId="PendingBar"
+                    Background="{ThemeResource LayerOnMicaBaseAltFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                    BorderThickness="0,1,0,0"
+                    ColumnSpacing="12"
+                    Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <FontIcon
+                        VerticalAlignment="Center"
+                        FontSize="16"
+                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                        Glyph="&#xE70F;" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock
+                            x:Name="PendingTitle"
+                            AutomationProperties.AutomationId="PendingTitle"
+                            Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock
+                            x:Name="PendingDetail"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button
+                        x:Name="DiscardButton"
+                        Grid.Column="2"
+                        AutomationProperties.AutomationId="DiscardButton"
+                        Click="Discard_Click"
+                        Content="Discard" />
+                    <Button
+                        x:Name="ApplyButton"
+                        Grid.Column="3"
+                        AutomationProperties.AutomationId="ApplyButton"
+                        Click="Apply_Click"
+                        Content="Review and apply"
+                        Style="{StaticResource AccentButtonStyle}" />
+                </Grid>
+            </Grid>
+        </NavigationView>
+    </Grid>
+</Window>
