@@ -61,6 +61,10 @@ public sealed class IntegrationTests : IDisposable
 
         public System.Threading.Tasks.Task<HelperPrefetchResult> ScanPrefetchAsync(CancellationToken cancellation = default) =>
             System.Threading.Tasks.Task.FromResult(new HelperPrefetchResult(true, []));
+
+        public System.Threading.Tasks.Task<HelperDriveResult> ReadDriveAsync(
+            char letter, Action<double>? progress = null, CancellationToken cancellation = default) =>
+            System.Threading.Tasks.Task.FromResult(new HelperDriveResult(true, null));
     }
 
     [Fact]

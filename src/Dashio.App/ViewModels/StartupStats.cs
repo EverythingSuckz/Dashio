@@ -4,9 +4,11 @@ using Dashio.Core.Models;
 namespace Dashio.App.ViewModels;
 
 /// <summary>One kind of autostart item with how many are on, for the "What starts" panel.</summary>
-public sealed record KindBreakdown(string Glyph, string Name, string Explanation, string OnText, string TotalText)
+public sealed record KindBreakdown(AutostartKind Kind, string Glyph, string Name, string Explanation, int On, int Total)
 {
-    public string AccessibleName => $"{Name}: {OnText}, {TotalText}";
+    public string CountText => $"{On} of {Total} on";
+    public double Percent => Total == 0 ? 0 : 100.0 * On / Total;
+    public string AccessibleName => $"{Name}: {CountText}. {Explanation} Show them.";
 }
 
 /// <summary>The headline numbers about what starts by itself on this PC.</summary>
@@ -25,10 +27,11 @@ public sealed record StartupStats(int AtStartup, int NotInTaskManager, int Runni
             .GroupBy(i => i.Item.Kind)
             .OrderBy(k => k.Key)
             .Select(k => new KindBreakdown(
+                k.Key,
                 ItemText.KindGlyph(k.Key),
                 ItemText.KindHeading(k.Key),
                 ItemText.KindExplanation(k.Key),
-                $"{k.Count(i => i.Item.Enabled)} on",
-                $"of {k.Count()}"))
+                k.Count(i => i.Item.Enabled),
+                k.Count()))
             .ToList());
 }

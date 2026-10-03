@@ -2,7 +2,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Dashio.Core.AdminScan;
 using Dashio.Core.Journal;
 using Dashio.Core.Models;
+using Dashio.Core;
 using Dashio.Core.Processes;
+using Dashio.Core.Scanning;
 
 namespace Dashio.App.Services;
 
@@ -18,7 +20,21 @@ public sealed partial class ScanState : ObservableObject
     [ObservableProperty]
     public partial string StatusText { get; set; } = "";
 
+    /// <summary>After this long a scan is repeated when the window is returned to.</summary>
+    private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(5);
+
+    private DateTimeOffset _scannedAt;
+
+    /// <summary>Which startup items were there before, so one that an app added since can be pointed out.</summary>
+    public SeenItems Seen { get; } = SeenItems.Load(DashioPaths.SeenItems);
+
     public bool HasScanned { get; private set; }
+
+    /// <summary>
+    /// The last scan is old enough to repeat. Never while the admin scan's extra tasks are listed:
+    /// an ordinary scan cannot see them and would drop them.
+    /// </summary>
+    public bool IsStale => HasScanned && !IsScanning && !AdminScanDone && DateTimeOffset.Now - _scannedAt > StaleAfter;
     public IReadOnlyList<AppGroup> Groups { get; private set; } = [];
     public IReadOnlyList<CollectorError> Errors { get; private set; } = [];
     public IReadOnlyList<JournalEntry> Journal { get; private set; } = [];
@@ -43,12 +59,16 @@ public sealed partial class ScanState : ObservableObject
 
             _items = snapshot.Items.ToList();
             _sources = snapshot.Sources;
+            // Only what an ordinary scan sees: tasks the admin scan adds were there all along.
+            if (Seen.Note(_items.Select(i => i.Id), DateTimeOffset.Now))
+                _ = Task.Run(Seen.Save);
             Errors = snapshot.Errors;
             Journal = journal.Entries;
             JournalSkippedLines = journal.SkippedLines;
             AdminScanDone = false;
             await RegroupAsync();
             HasScanned = true;
+            _scannedAt = DateTimeOffset.Now;
             // Sizes and shortcuts only change with what is installed, so they follow full scans only.
             if (Attributor is not null)
                 AppServices.Inventory.Rebuild(_sources, Attributor);
@@ -77,6 +97,15 @@ public sealed partial class ScanState : ObservableObject
         Journal = journal.Entries;
         JournalSkippedLines = journal.SkippedLines;
         await RegroupAsync();
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Picks up entries written to the change log by something other than a change to an item.</summary>
+    public async Task ReloadJournalAsync()
+    {
+        var journal = await Task.Run(AppServices.Journal.Load);
+        Journal = journal.Entries;
+        JournalSkippedLines = journal.SkippedLines;
         Changed?.Invoke(this, EventArgs.Empty);
     }
 

@@ -105,6 +105,10 @@ internal sealed class FakeSystem : IHelperLauncher
 
     public Task<HelperPrefetchResult> ScanPrefetchAsync(CancellationToken cancellation = default) =>
         Task.FromResult(new HelperPrefetchResult(false, []));
+
+    public Task<HelperDriveResult> ReadDriveAsync(
+        char letter, Action<double>? progress = null, CancellationToken cancellation = default) =>
+        Task.FromResult(new HelperDriveResult(false, null));
 }
 
 public sealed class ChangeCoordinatorTests : IDisposable

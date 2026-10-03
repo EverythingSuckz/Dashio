@@ -25,8 +25,9 @@ public sealed record FolderRow(string Kind, string Path, string Size)
 /// <summary>One process of the app, with what it is using right now.</summary>
 public sealed partial class ProcessRowViewModel : ObservableObject
 {
-    public ProcessRowViewModel(ProcessUsage process, bool appCanBeEnded)
+    public ProcessRowViewModel(ProcessUsage process, bool appCanBeEnded, string groupId = "", long totalMemory = 0)
     {
+        GroupId = groupId;
         Usage = process;
         CanEnd = appCanBeEnded && RunningActions.CanEnd(process);
         Pid = process.Pid;
@@ -35,9 +36,11 @@ public sealed partial class ProcessRowViewModel : ObservableObject
             ? $"Process {process.Pid}"
             : $"Process {process.Pid} · runs {string.Join(", ", process.Services)}";
         Path = process.Path ?? "";
-        Update(process);
+        Update(process, totalMemory);
     }
 
+    /// <summary>The app the process belongs to, for lists that mix several apps.</summary>
+    public string GroupId { get; }
     public int Pid { get; }
     public string Name { get; }
     public string Detail { get; }
@@ -59,9 +62,18 @@ public sealed partial class ProcessRowViewModel : ObservableObject
     [ObservableProperty]
     public partial string AccessibleName { get; set; } = "";
 
-    public void Update(ProcessUsage process)
+    /// <summary>How strongly the memory cell is tinted, 0 to 1.</summary>
+    [ObservableProperty]
+    public partial double MemoryHeat { get; set; }
+
+    [ObservableProperty]
+    public partial double CpuHeat { get; set; }
+
+    public void Update(ProcessUsage process, long totalMemory = 0)
     {
         Usage = process;
+        MemoryHeat = UsageText.Heat(totalMemory <= 0 ? 0 : (double)process.MemoryBytes / totalMemory);
+        CpuHeat = UsageText.Heat(process.CpuPercent / 100);
         Memory = UsageText.Memory(process.MemoryBytes);
         Cpu = UsageText.Cpu(process.CpuPercent);
         AccessibleName = $"{Name}, {Detail}, memory {Memory}, processor {Cpu}";
@@ -114,7 +126,18 @@ public sealed partial class AppDetailViewModel : ObservableObject
     public partial bool HasLocation { get; set; }
 
     [ObservableProperty]
+    public partial bool CanUninstall { get; set; }
+
+    [ObservableProperty]
     public partial bool HasActions { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNotUninstalling))]
+    [NotifyPropertyChangedFor(nameof(UninstallLabel))]
+    public partial bool IsUninstalling { get; set; }
+
+    public bool IsNotUninstalling => !IsUninstalling;
+    public string UninstallLabel => IsUninstalling ? "Uninstalling" : "Uninstall";
 
     public string GroupId => _groupId;
 
@@ -175,6 +198,11 @@ public sealed partial class AppDetailViewModel : ObservableObject
         Rebuild();
     }
 
+    /// <summary>Whether the app is still known, without rebuilding the page.</summary>
+    public bool StillExists() => Exists = AppServices.State.FindGroup(_groupId) is not null;
+
+    public void UpdateUninstall() => IsUninstalling = UninstallActions.IsUnderway(_groupId);
+
     public void Rebuild()
     {
         var group = AppServices.State.FindGroup(_groupId);
@@ -194,6 +222,7 @@ public sealed partial class AppDetailViewModel : ObservableObject
         HasItems = group.Items.Count > 0;
         UpdateUsage();
         UpdateStorage();
+        UpdateUninstall();
         _ = LoadIconAsync(group.IconPath);
 
         foreach (var kind in group.Items.GroupBy(i => i.Item.Kind).OrderBy(g => g.Key))
@@ -226,6 +255,8 @@ public sealed partial class AppDetailViewModel : ObservableObject
                 f.Bytes is { } bytes ? UsageText.Memory(bytes) : "Measuring"))
             .ToList() ?? [];
         HasFolders = Folders.Count > 0;
+        CanUninstall = UninstallActions.CanUninstall(_groupId);
+        HasActions = HasItems || CanEndApp || HasLocation || CanUninstall;
         StorageSummary = installed is null ? "" : InstalledText.Size(installed);
     }
 
@@ -240,7 +271,7 @@ public sealed partial class AppDetailViewModel : ObservableObject
 
         CanEndApp = RunningActions.CanEnd(usage);
         HasLocation = RunningActions.LocationOf(_groupId) is not null;
-        HasActions = HasItems || CanEndApp || HasLocation;
+        HasActions = HasItems || CanEndApp || HasLocation || CanUninstall;
 
         var shown = usage?.Processes.Take(MaxProcesses).ToList() ?? [];
         for (var i = 0; i < shown.Count; i++)

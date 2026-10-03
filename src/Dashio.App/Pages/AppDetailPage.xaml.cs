@@ -35,6 +35,7 @@ public sealed partial class AppDetailPage : Page
         AppServices.Pending.Changed += Pending_Changed;
         AppServices.Monitor.Updated += Monitor_Updated;
         AppServices.Inventory.Changed += Inventory_Changed;
+        UninstallActions.Changed += Uninstalls_Changed;
         ViewModel.Load(e.Parameter as string ?? "");
     }
 
@@ -44,9 +45,23 @@ public sealed partial class AppDetailPage : Page
         AppServices.Pending.Changed -= Pending_Changed;
         AppServices.Monitor.Updated -= Monitor_Updated;
         AppServices.Inventory.Changed -= Inventory_Changed;
+        UninstallActions.Changed -= Uninstalls_Changed;
     }
 
-    private void Inventory_Changed(object? sender, EventArgs e) => ViewModel.UpdateStorage();
+    private void Inventory_Changed(object? sender, EventArgs e)
+    {
+        ViewModel.UpdateStorage();
+        LeaveIfGone();
+    }
+
+    private void Uninstalls_Changed(object? sender, EventArgs e) => ViewModel.UpdateUninstall();
+
+    /// <summary>A rescan can regroup items, and an app can be uninstalled: when this one is gone, go back to the list.</summary>
+    private void LeaveIfGone()
+    {
+        if (!ViewModel.StillExists() && Frame.CanGoBack)
+            Frame.GoBack();
+    }
 
     private void OpenFolder_Click(object sender, RoutedEventArgs e)
     {
@@ -59,9 +74,7 @@ public sealed partial class AppDetailPage : Page
     private void State_Changed(object? sender, EventArgs e)
     {
         ViewModel.Rebuild();
-        // A rescan can regroup items; if this app is gone, go back to the list.
-        if (!ViewModel.Exists && Frame.CanGoBack)
-            Frame.GoBack();
+        LeaveIfGone();
     }
 
     private void Pending_Changed(object? sender, EventArgs e) => ViewModel.RefreshPending();
@@ -70,6 +83,9 @@ public sealed partial class AppDetailPage : Page
 
     private async void EndApp_Click(object sender, RoutedEventArgs e) =>
         await RunningActions.EndAppAsync(this, ViewModel.GroupId);
+
+    private async void Uninstall_Click(object sender, RoutedEventArgs e) =>
+        await UninstallActions.UninstallAsync(this, ViewModel.GroupId);
 
     private void ShowLocation_Click(object sender, RoutedEventArgs e) =>
         ItemActions.Reveal(RunningActions.LocationOf(ViewModel.GroupId));

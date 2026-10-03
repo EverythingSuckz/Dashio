@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Dashio.App"
+    xmlns:services="using:Dashio.App.Services"
     Title="Dashio">
     <Window.SystemBackdrop>
         <MicaBackdrop />
@@ -22,6 +23,10 @@
             <KeyboardAccelerator Key="F5" Invoked="Refresh_Invoked" />
             <KeyboardAccelerator
                 Key="F"
+                Invoked="Filter_Invoked"
+                Modifiers="Control" />
+            <KeyboardAccelerator
+                Key="E"
                 Invoked="Search_Invoked"
                 Modifiers="Control" />
             <KeyboardAccelerator
@@ -57,40 +62,68 @@
                 </Button>
             </TitleBar.LeftHeader>
             <TitleBar.Content>
+                <!-- Finds an app, a running program, a startup item, a page or a setting, and goes there. -->
                 <AutoSuggestBox
                     x:Name="SearchBox"
                     MinWidth="280"
                     MaxWidth="480"
                     VerticalAlignment="Center"
                     AutomationProperties.AutomationId="SearchBox"
-                    AutomationProperties.Name="Search apps and items"
+                    AutomationProperties.Name="Search Dashio"
                     CornerRadius="16"
-                    PlaceholderText="Search apps and items"
+                    PlaceholderText="Search apps, processes and settings"
                     QueryIcon="Find"
-                    TextChanged="SearchBox_TextChanged" />
+                    QuerySubmitted="SearchBox_QuerySubmitted"
+                    TextChanged="SearchBox_TextChanged"
+                    ToolTipService.ToolTip="Search (Ctrl+E)"
+                    UpdateTextOnSelect="False">
+                    <AutoSuggestBox.ItemTemplate>
+                        <DataTemplate x:DataType="services:SearchResult">
+                            <Grid
+                                Padding="0,6,0,6"
+                                AutomationProperties.Name="{x:Bind AccessibleName}"
+                                ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid
+                                    Width="20"
+                                    Height="20"
+                                    VerticalAlignment="Center">
+                                    <FontIcon
+                                        FontSize="16"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Glyph="{x:Bind Glyph}"
+                                        Visibility="{x:Bind local:Ui.VisibleIfNull(Icon), Mode=OneWay}" />
+                                    <Image Source="{x:Bind Icon, Mode=OneWay}" Stretch="Uniform" />
+                                </Grid>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind Caption}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </AutoSuggestBox.ItemTemplate>
+                </AutoSuggestBox>
             </TitleBar.Content>
             <TitleBar.RightHeader>
                 <StackPanel
                     VerticalAlignment="Center"
                     Orientation="Horizontal"
                     Spacing="8">
+                    <!-- The scan repeats by itself; this only shows that one is running. -->
                     <ProgressRing
                         Width="16"
                         Height="16"
+                        Margin="0,0,8,0"
                         AutomationProperties.Name="Scanning"
-                        IsActive="{x:Bind State.IsScanning, Mode=OneWay}" />
-                    <Button
-                        x:Name="RefreshButton"
-                        Padding="8"
-                        AutomationProperties.AutomationId="RefreshButton"
-                        AutomationProperties.Name="Scan again"
-                        Background="{ThemeResource SubtleFillColorTransparentBrush}"
-                        BorderThickness="0"
-                        Click="Refresh_Click"
-                        IsEnabled="{x:Bind local:Ui.Not(State.IsScanning), Mode=OneWay}"
-                        ToolTipService.ToolTip="Scan again (F5)">
-                        <FontIcon FontSize="16" Glyph="&#xE72C;" />
-                    </Button>
+                        IsActive="{x:Bind State.IsScanning, Mode=OneWay}"
+                        ToolTipService.ToolTip="Looking at what is installed and what starts by itself" />
                 </StackPanel>
             </TitleBar.RightHeader>
         </TitleBar>
@@ -114,6 +147,15 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
+                    x:Name="ProcessesItem"
+                    AutomationProperties.AutomationId="NavProcesses"
+                    Content="Processes"
+                    Tag="processes">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9D9;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem
                     x:Name="AppsItem"
                     AutomationProperties.AutomationId="NavApps"
                     Content="Apps"
@@ -123,21 +165,21 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
-                    x:Name="InstalledItem"
-                    AutomationProperties.AutomationId="NavInstalled"
-                    Content="Installed"
-                    Tag="installed">
+                    x:Name="StorageItem"
+                    AutomationProperties.AutomationId="NavStorage"
+                    Content="Storage"
+                    Tag="storage">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE74C;" />
+                        <FontIcon Glyph="&#xEDA2;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
-                    x:Name="AllItemsItem"
-                    AutomationProperties.AutomationId="NavAllItems"
-                    Content="All items"
-                    Tag="items">
+                    x:Name="StartupItem"
+                    AutomationProperties.AutomationId="NavStartup"
+                    Content="Startup"
+                    Tag="startup">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE8FD;" />
+                        <FontIcon Glyph="&#xE7E8;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
@@ -195,6 +237,41 @@
                             </Grid>
                         </InfoBar.Content>
                     </InfoBar>
+                    <!-- Stays for as long as an uninstall is underway, whichever page is showing. -->
+                    <InfoBar
+                        x:Name="UninstallBar"
+                        AutomationProperties.AutomationId="UninstallBar"
+                        IsClosable="False"
+                        IsIconVisible="False"
+                        IsOpen="False"
+                        Severity="Informational">
+                        <InfoBar.Content>
+                            <Grid Margin="0,12,0,12" ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <ProgressRing
+                                    Width="20"
+                                    Height="20"
+                                    VerticalAlignment="Center"
+                                    IsActive="{x:Bind UninstallBar.IsOpen, Mode=OneWay}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock
+                                        x:Name="UninstallTitle"
+                                        AutomationProperties.AutomationId="UninstallTitle"
+                                        AutomationProperties.LiveSetting="Polite"
+                                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                                        TextWrapping="Wrap" />
+                                    <TextBlock
+                                        x:Name="UninstallDetail"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Grid>
+                        </InfoBar.Content>
+                    </InfoBar>
                     <InfoBar
                         x:Name="ErrorBar"
                         Title="Some things could not be read"
@@ -211,9 +288,14 @@
                             <Button
                                 x:Name="NoticeUndoButton"
                                 AutomationProperties.AutomationId="NoticeUndoButton"
+                                AutomationProperties.Name="Undo"
                                 Click="NoticeUndo_Click"
-                                Content="Undo"
-                                Visibility="Collapsed" />
+                                Visibility="Collapsed">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="14" Glyph="&#xE7A7;" />
+                                    <TextBlock Text="Undo" />
+                                </StackPanel>
+                            </Button>
                         </InfoBar.ActionButton>
                     </InfoBar>
                 </StackPanel>
@@ -264,15 +346,25 @@
                         x:Name="DiscardButton"
                         Grid.Column="2"
                         AutomationProperties.AutomationId="DiscardButton"
-                        Click="Discard_Click"
-                        Content="Discard" />
+                        AutomationProperties.Name="Discard"
+                        Click="Discard_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE711;" />
+                            <TextBlock Text="Discard" />
+                        </StackPanel>
+                    </Button>
                     <Button
                         x:Name="ApplyButton"
                         Grid.Column="3"
                         AutomationProperties.AutomationId="ApplyButton"
+                        AutomationProperties.Name="Review and apply"
                         Click="Apply_Click"
-                        Content="Review and apply"
-                        Style="{StaticResource AccentButtonStyle}" />
+                        Style="{StaticResource AccentButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE73E;" />
+                            <TextBlock Text="Review and apply" />
+                        </StackPanel>
+                    </Button>
                 </Grid>
             </Grid>
         </NavigationView>

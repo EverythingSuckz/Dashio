@@ -4,6 +4,7 @@ using Dashio.Core.Changes;
 using Dashio.Core.Inventory;
 using Dashio.Core.Processes;
 using Dashio.Core.Scanning;
+using Dashio.Core.Storage;
 
 namespace Dashio.Helper;
 
@@ -12,8 +13,10 @@ namespace Dashio.Helper;
 ///   Dashio.Helper.exe --request &lt;file&gt; --response &lt;file&gt;
 ///   Dashio.Helper.exe --scan-tasks --request &lt;file&gt; --response &lt;file&gt;
 ///   Dashio.Helper.exe --scan-prefetch --request &lt;file&gt; --response &lt;file&gt;
+///   Dashio.Helper.exe --read-drive &lt;letter&gt; --request &lt;file&gt; --response &lt;file&gt;
 /// It switches existing autostart items on or off, ends programs that are not part of Windows,
-/// lists scheduled tasks, or lists when programs last ran, and exits.
+/// lists scheduled tasks, lists when programs last ran, or reads the folder sizes of a fixed
+/// drive, and exits.
 /// </summary>
 internal static class Program
 {
@@ -41,6 +44,10 @@ internal static class Program
             else if (args.Contains("--scan-prefetch", StringComparer.OrdinalIgnoreCase))
             {
                 WriteNew(response, ReadPrefetch());
+            }
+            else if (args.Contains("--read-drive", StringComparer.OrdinalIgnoreCase))
+            {
+                WriteNew(response, ReadDrive(Argument(args, "--read-drive"), response));
             }
             else
             {
@@ -74,6 +81,40 @@ internal static class Program
         {
             return new PrefetchScanResponse([], e.Message);
         }
+    }
+
+    /// <summary>
+    /// Reads a drive's folder sizes and writes the tree beside the response. The request gives a
+    /// drive letter only; it is checked against this PC's fixed drives before anything is opened.
+    /// </summary>
+    private static DriveReadResponse ReadDrive(string? letter, string responsePath)
+    {
+        if (AdminDriveReader.RootFor(letter) is not { } root)
+            return new DriveReadResponse(false, "That is not a fixed drive of this PC.");
+        var treePath = HelperRequestProcessor.TreePathFor(responsePath);
+        var progressPath = HelperRequestProcessor.ProgressPathFor(responsePath);
+        if (File.Exists(treePath) || File.Exists(progressPath))
+            return new DriveReadResponse(false, "The files for the result already exist.");
+
+        var lastWritten = DateTime.MinValue;
+        void Report(double fraction)
+        {
+            // Often enough for a progress bar; not so often that the disk is busy with it.
+            if ((DateTime.UtcNow - lastWritten).TotalMilliseconds < 250)
+                return;
+            lastWritten = DateTime.UtcNow;
+            try
+            {
+                File.WriteAllText(progressPath, fraction.ToString("F3", System.Globalization.CultureInfo.InvariantCulture));
+            }
+            catch (IOException)
+            {
+            }
+        }
+
+        var (tree, fromTable) = AdminDriveReader.Read(root, Report);
+        FolderTreeFile.Save(treePath, tree, DateTimeOffset.Now, readEverything: true);
+        return new DriveReadResponse(fromTable);
     }
 
     private static string? Argument(string[] args, string name)

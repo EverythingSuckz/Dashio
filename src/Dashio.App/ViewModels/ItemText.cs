@@ -14,6 +14,8 @@ public static class ItemText
         AutostartKind.StartupFolder => "Startup folder",
         AutostartKind.PackagedStartupTask => "Store app startup",
         AutostartKind.Process => "Running program",
+        AutostartKind.App => "Installed app",
+        AutostartKind.File => "File or folder",
         _ => kind.ToString(),
     };
 
@@ -99,6 +101,8 @@ public static class ItemText
         ChangeAction.Enable => "turn on",
         ChangeAction.Stop => "stop",
         ChangeAction.Start => "start",
+        ChangeAction.Uninstall => "uninstall",
+        ChangeAction.Delete => "delete",
         _ => "end",
     };
 
@@ -109,6 +113,8 @@ public static class ItemText
         ChangeAction.Enable => "Turned on",
         ChangeAction.Stop => "Stopped",
         ChangeAction.Start => "Started",
+        ChangeAction.Uninstall => "Uninstalled",
+        ChangeAction.Delete => "Deleted",
         _ => "Ended",
     };
 
@@ -117,6 +123,7 @@ public static class ItemText
         ChangeAction.Disable => "\uE7E8",   // PowerButton
         ChangeAction.Stop => "\uE71A",      // Stop
         ChangeAction.End => "\uE711",       // Cancel
+        ChangeAction.Uninstall or ChangeAction.Delete => "\uE74D", // Delete
         _ => "\uE768",                      // Play
     };
 

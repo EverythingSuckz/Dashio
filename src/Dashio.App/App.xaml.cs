@@ -21,8 +21,13 @@ public partial class App : Application
     {
         _window = new MainWindow();
         if (Environment.GetEnvironmentVariable(BackgroundVariable) == "1")
+        {
+            ((MainWindow)_window).StayInBackground();
             _window.AppWindow.Show(activateWindow: false);
+        }
         else
+        {
             _window.Activate();
+        }
     }
 }

@@ -56,6 +56,21 @@
                         AutomationProperties.Name="Show Windows components"
                         Toggled="ShowWindows_Toggled" />
                 </controls:SettingsCard>
+                <controls:SettingsCard Description="Dashio reads what is installed and what starts by itself when it opens, and again when you come back to it after a few minutes. F5 does the same." Header="Scan again now">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE72C;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button
+                        x:Name="RescanButton"
+                        AutomationProperties.AutomationId="RescanButton"
+                        AutomationProperties.Name="Scan again now"
+                        Click="Rescan_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE72C;" />
+                            <TextBlock Text="Scan" />
+                        </StackPanel>
+                    </Button>
+                </controls:SettingsCard>
                 <controls:SettingsCard Description="Some scheduled tasks are hidden from ordinary apps. This asks for administrator permission once, then lists those tasks until the next scan." Header="Scan with administrator rights">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xEA18;" />
@@ -69,8 +84,13 @@
                         <Button
                             x:Name="AdminScanButton"
                             AutomationProperties.AutomationId="AdminScanButton"
-                            Click="AdminScan_Click"
-                            Content="Scan" />
+                            AutomationProperties.Name="Scan with administrator rights"
+                            Click="AdminScan_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="14" Glyph="&#xEA18;" />
+                                <TextBlock Text="Scan" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </controls:SettingsCard>
 
@@ -88,8 +108,12 @@
                             x:Name="UsageCheckButton"
                             AutomationProperties.AutomationId="UsageCheckButton"
                             AutomationProperties.Name="Check when apps were last opened"
-                            Click="UsageCheck_Click"
-                            Content="Check" />
+                            Click="UsageCheck_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="14" Glyph="&#xEA18;" />
+                                <TextBlock Text="Check" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </controls:SettingsCard>
 
@@ -128,8 +152,12 @@
                     <Button
                         AutomationProperties.AutomationId="OpenLogFolderButton"
                         AutomationProperties.Name="Open the change log folder"
-                        Click="OpenLogFolder_Click"
-                        Content="Open folder" />
+                        Click="OpenLogFolder_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE838;" />
+                            <TextBlock Text="Open folder" />
+                        </StackPanel>
+                    </Button>
                 </controls:SettingsCard>
 
                 <TextBlock

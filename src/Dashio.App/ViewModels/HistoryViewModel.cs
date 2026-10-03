@@ -51,8 +51,10 @@ public sealed class HistoryRow
         IsUndone = journal.Any(e => e.UndoOf == entry.Id && e.Result == JournalResult.Applied);
         if (IsUndone)
             parts.Add("Undone");
-        if (entry is { Action: ChangeAction.End, Result: JournalResult.Applied })
+        if (entry is { Action: ChangeAction.End or ChangeAction.Uninstall, Result: JournalResult.Applied })
             parts.Add("Cannot be undone");
+        if (entry is { Note.Length: > 0, Result: JournalResult.Applied })
+            parts.Add(entry.Note);
         Subtitle = string.Join(" · ", parts);
 
         Error = entry.Error ?? "";

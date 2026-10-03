@@ -258,10 +258,14 @@
                         VerticalAlignment="Center"
                         AutomationProperties.Name="{x:Bind StopName}"
                         Click="StopItem_Click"
-                        Content="Stop"
                         Tag="{x:Bind}"
                         ToolTipService.ToolTip="Stops this service now. Its start setting stays as it is, so it starts again as before."
-                        Visibility="{x:Bind local:Ui.Visible(CanStopNow)}" />
+                        Visibility="{x:Bind local:Ui.Visible(CanStopNow)}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon FontSize="14" Glyph="&#xE71A;" />
+                            <TextBlock Text="Stop" />
+                        </StackPanel>
+                    </Button>
                     <FontIcon
                         VerticalAlignment="Center"
                         AutomationProperties.Name="Needs administrator permission to change"
@@ -473,6 +477,28 @@
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon FontSize="14" Glyph="&#xE838;" />
                                     <TextBlock Text="Show in File Explorer" />
+                                </StackPanel>
+                            </Button>
+                            <Button
+                                AutomationProperties.AutomationId="UninstallButton"
+                                AutomationProperties.Name="{x:Bind ViewModel.UninstallLabel, Mode=OneWay}"
+                                Click="Uninstall_Click"
+                                IsEnabled="{x:Bind ViewModel.IsNotUninstalling, Mode=OneWay}"
+                                ToolTipService.ToolTip="Starts the app's own uninstaller, as Windows Settings would"
+                                Visibility="{x:Bind local:Ui.Visible(ViewModel.CanUninstall), Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon
+                                        FontSize="14"
+                                        Glyph="&#xE74D;"
+                                        Visibility="{x:Bind local:Ui.Visible(ViewModel.IsNotUninstalling), Mode=OneWay}" />
+                                    <ProgressRing
+                                        Width="14"
+                                        Height="14"
+                                        MinWidth="14"
+                                        MinHeight="14"
+                                        IsActive="{x:Bind ViewModel.IsUninstalling, Mode=OneWay}"
+                                        Visibility="{x:Bind local:Ui.Visible(ViewModel.IsUninstalling), Mode=OneWay}" />
+                                    <TextBlock Text="{x:Bind ViewModel.UninstallLabel, Mode=OneWay}" />
                                 </StackPanel>
                             </Button>
                             </StackPanel>

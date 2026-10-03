@@ -22,5 +22,19 @@ public static class UsageText
         _ => "0%",
     };
 
+    /// <summary>
+    /// How strongly to tint a cell for a share of the whole (0 to 1). Small shares still show,
+    /// because most of what runs uses little and the differences among them matter.
+    /// </summary>
+    public static double Heat(double share)
+    {
+        // High contrast keeps text on the plain background.
+        if (Accessibility.HighContrast)
+            return 0;
+        return share <= 0 ? 0.03 : Math.Min(0.6, 0.03 + 0.6 * Math.Sqrt(Math.Min(1, share)));
+    }
+
+    private static readonly Windows.UI.ViewManagement.AccessibilitySettings Accessibility = new();
+
     public static string Processes(int count) => ItemText.Plural(count, "process", "processes");
 }

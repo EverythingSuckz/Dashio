@@ -173,8 +173,13 @@
                     <InfoBar.ActionButton>
                         <Button
                             AutomationProperties.AutomationId="OverviewOpenSettings"
-                            Click="OpenSettings_Click"
-                            Content="Open Settings" />
+                            AutomationProperties.Name="Open Settings"
+                            Click="OpenSettings_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="14" Glyph="&#xE713;" />
+                                <TextBlock Text="Open Settings" />
+                            </StackPanel>
+                        </Button>
                     </InfoBar.ActionButton>
                 </InfoBar>
 
@@ -307,16 +312,26 @@
                             <!-- As tall as the graphs beside it, so the three cards line up. -->
                             <Grid Height="64" Padding="20,0,20,0">
                                 <ProgressBar
+                                    MinHeight="8"
                                     VerticalAlignment="Center"
                                     AutomationProperties.Name="Share of the Windows drive in use"
+                                    CornerRadius="4"
                                     Maximum="100"
-                                    Value="{x:Bind ViewModel.DiskUsedPercent, Mode=OneWay}" />
+                                    Value="{x:Bind ViewModel.DiskUsedPercent, Mode=OneWay}">
+                                    <!-- As thick as the drive bars on the Storage page. -->
+                                    <ProgressBar.Resources>
+                                        <x:Double x:Key="ProgressBarMinHeight">8</x:Double>
+                                        <x:Double x:Key="ProgressBarTrackHeight">8</x:Double>
+                                        <CornerRadius x:Key="ProgressBarCornerRadius">4</CornerRadius>
+                                        <CornerRadius x:Key="ProgressBarTrackCornerRadius">4</CornerRadius>
+                                    </ProgressBar.Resources>
+                                </ProgressBar>
                             </Grid>
                         </StackPanel>
                     </Border>
                 </Grid>
 
-                <!-- What starts by itself. Each tile opens the Apps page on that tab. -->
+                <!-- What starts by itself. Each tile opens the page that lists what it counts. -->
                 <Grid
                     x:Name="TileGrid"
                     ColumnSpacing="16"
@@ -447,17 +462,37 @@
                     RowSpacing="16">
                     <Border Style="{StaticResource PanelStyle}">
                         <StackPanel>
-                            <StackPanel Padding="20,20,20,12" Spacing="4">
-                                <TextBlock
-                                    AutomationProperties.HeadingLevel="Level2"
-                                    Style="{StaticResource SubtitleTextBlockStyle}"
-                                    Text="Using the most memory" />
-                                <TextBlock
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="Each app with everything it is running, largest first"
-                                    TextWrapping="Wrap" />
-                            </StackPanel>
+                            <Grid Padding="20,16,12,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="4">
+                                    <TextBlock
+                                        AutomationProperties.HeadingLevel="Level2"
+                                        Style="{StaticResource SubtitleTextBlockStyle}"
+                                        Text="Using the most memory" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="Each app with everything it is running, largest first"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                                <HyperlinkButton
+                                    Grid.Column="1"
+                                    VerticalAlignment="Top"
+                                    AutomationProperties.AutomationId="OverviewOpenProcessesMemory"
+                                    AutomationProperties.Name="See everything that is running"
+                                    Click="OpenProcesses_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="See all" />
+                                            <FontIcon
+                                                VerticalAlignment="Center"
+                                                FontSize="10"
+                                                Glyph="&#xE76C;" />
+                                        </StackPanel>
+                                </HyperlinkButton>
+                            </Grid>
                             <ItemsRepeater
                                 x:Name="TopMemoryList"
                                 Margin="0,0,0,8"
@@ -474,17 +509,37 @@
 
                     <Border Style="{StaticResource PanelStyle}">
                         <StackPanel>
-                            <StackPanel Padding="20,20,20,12" Spacing="4">
-                                <TextBlock
-                                    AutomationProperties.HeadingLevel="Level2"
-                                    Style="{StaticResource SubtitleTextBlockStyle}"
-                                    Text="Using the most processor" />
-                                <TextBlock
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="Share of the whole processor, busiest first"
-                                    TextWrapping="Wrap" />
-                            </StackPanel>
+                            <Grid Padding="20,16,12,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="4">
+                                    <TextBlock
+                                        AutomationProperties.HeadingLevel="Level2"
+                                        Style="{StaticResource SubtitleTextBlockStyle}"
+                                        Text="Using the most processor" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="Share of the whole processor, busiest first"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                                <HyperlinkButton
+                                    Grid.Column="1"
+                                    VerticalAlignment="Top"
+                                    AutomationProperties.AutomationId="OverviewOpenProcessesCpu"
+                                    AutomationProperties.Name="See everything that is running"
+                                    Click="OpenProcesses_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="See all" />
+                                            <FontIcon
+                                                VerticalAlignment="Center"
+                                                FontSize="10"
+                                                Glyph="&#xE76C;" />
+                                        </StackPanel>
+                                </HyperlinkButton>
+                            </Grid>
                             <ItemsRepeater
                                 x:Name="TopCpuList"
                                 Margin="0,0,0,8"
@@ -532,10 +587,17 @@
                                 <HyperlinkButton
                                     Grid.Column="1"
                                     VerticalAlignment="Top"
-                                    AutomationProperties.AutomationId="OverviewOpenInstalled"
-                                    AutomationProperties.Name="See all installed apps"
-                                    Click="OpenInstalled_Click"
-                                    Content="See all" />
+                                    AutomationProperties.AutomationId="OverviewOpenStorage"
+                                    AutomationProperties.Name="See how much space every app takes"
+                                    Click="OpenStorage_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="See all" />
+                                            <FontIcon
+                                                VerticalAlignment="Center"
+                                                FontSize="10"
+                                                Glyph="&#xE76C;" />
+                                        </StackPanel>
+                                </HyperlinkButton>
                             </Grid>
                             <ItemsRepeater
                                 Margin="0,0,0,8"
@@ -551,7 +613,11 @@
                     </Border>
 
                     <Border Style="{StaticResource PanelStyle}">
-                        <StackPanel>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
                             <Grid Padding="20,16,12,8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -573,26 +639,76 @@
                                     VerticalAlignment="Top"
                                     AutomationProperties.AutomationId="OverviewOpenUnused"
                                     AutomationProperties.Name="See all apps not opened lately"
-                                    Click="OpenUnused_Click"
-                                    Content="See all" />
+                                    Click="OpenUnused_Click">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="See all" />
+                                            <FontIcon
+                                                VerticalAlignment="Center"
+                                                FontSize="10"
+                                                Glyph="&#xE76C;" />
+                                        </StackPanel>
+                                </HyperlinkButton>
                             </Grid>
                             <ItemsRepeater
+                                Grid.Row="1"
                                 Margin="0,0,0,8"
+                                VerticalAlignment="Top"
                                 ItemTemplate="{StaticResource UsageRowTemplate}"
                                 ItemsSource="{x:Bind ViewModel.TopUnused}" />
                             <ProgressRing
+                                Grid.Row="1"
                                 Width="24"
                                 Height="24"
                                 Margin="0,24,0,32"
                                 IsActive="{x:Bind ViewModel.IsLoadingInstalled, Mode=OneWay}"
                                 Visibility="{x:Bind local:Ui.Visible(ViewModel.IsLoadingInstalled), Mode=OneWay}" />
                             <TextBlock
+                                Grid.Row="1"
                                 Padding="20,4,20,24"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Text="{x:Bind ViewModel.UnusedNote, Mode=OneWay}"
                                 TextWrapping="Wrap"
                                 Visibility="{x:Bind local:Ui.VisibleIfText(ViewModel.UnusedNote), Mode=OneWay}" />
-                        </StackPanel>
+                            <!-- Nothing can be said until an administrator lets Dashio read what Windows has run. -->
+                            <StackPanel
+                                Grid.Row="1"
+                                MaxWidth="380"
+                                Margin="20,8,20,28"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="4"
+                                Visibility="{x:Bind local:Ui.Visible(ViewModel.NeedsAdminCheck), Mode=OneWay}">
+                                <Border
+                                    Margin="0,0,0,8"
+                                    HorizontalAlignment="Center"
+                                    Style="{StaticResource RowIconTileStyle}">
+                                    <FontIcon FontSize="20" Glyph="&#xEA18;" />
+                                </Border>
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                                    Text="Administrator access needed" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="Windows only lets an administrator see which programs it has run lately. Dashio needs that list to tell which apps you have not opened."
+                                    TextAlignment="Center"
+                                    TextWrapping="Wrap" />
+                                <Button
+                                    x:Name="GrantAccessButton"
+                                    Margin="0,12,0,0"
+                                    HorizontalAlignment="Center"
+                                    AutomationProperties.AutomationId="OverviewGrantAccess"
+                                    AutomationProperties.Name="Grant administrator access"
+                                    Click="GrantAccess_Click"
+                                    Style="{StaticResource AccentButtonStyle}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon FontSize="14" Glyph="&#xEA18;" />
+                                        <TextBlock Text="Grant access" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
                     </Border>
                 </Grid>
             </StackPanel>
@@ -606,55 +722,110 @@
                 RowSpacing="16">
                 <Border VerticalAlignment="Top" Style="{StaticResource PanelStyle}">
                     <StackPanel>
-                        <StackPanel Padding="20,20,20,16" Spacing="4">
-                            <TextBlock
-                                AutomationProperties.HeadingLevel="Level2"
-                                Style="{StaticResource SubtitleTextBlockStyle}"
-                                Text="What starts" />
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="The ways apps on this PC start themselves"
-                                TextWrapping="Wrap" />
-                        </StackPanel>
-                        <ItemsRepeater ItemsSource="{x:Bind ViewModel.Kinds, Mode=OneWay}">
+                        <Grid Padding="20,16,12,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="4">
+                                <TextBlock
+                                    AutomationProperties.HeadingLevel="Level2"
+                                    Style="{StaticResource SubtitleTextBlockStyle}"
+                                    Text="What starts" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="How many of each kind are switched on"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <HyperlinkButton
+                                Grid.Column="1"
+                                VerticalAlignment="Top"
+                                AutomationProperties.AutomationId="OverviewOpenStartup"
+                                AutomationProperties.Name="Open Startup"
+                                Click="OpenStartup_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Startup" />
+                                        <FontIcon
+                                            VerticalAlignment="Center"
+                                            FontSize="10"
+                                            Glyph="&#xE76C;" />
+                                    </StackPanel>
+                            </HyperlinkButton>
+                        </Grid>
+                        <!-- Something an app has added since Dashio first looked is worth a glance. -->
+                        <HyperlinkButton
+                            Margin="8,-4,12,4"
+                            AutomationProperties.AutomationId="OverviewNewItems"
+                            Click="NewItems_Click"
+                            Visibility="{x:Bind local:Ui.VisibleIfText(ViewModel.NewItemsText), Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="12" Glyph="&#xE735;" />
+                                <TextBlock Text="{x:Bind ViewModel.NewItemsText, Mode=OneWay}" />
+                                <FontIcon
+                                    VerticalAlignment="Center"
+                                    FontSize="10"
+                                    Glyph="&#xE76C;" />
+                            </StackPanel>
+                        </HyperlinkButton>
+                        <!-- One row per way of starting: how many are on, as a bar. Pressing it lists them. -->
+                        <ItemsRepeater Margin="0,0,0,8" ItemsSource="{x:Bind ViewModel.Kinds, Mode=OneWay}">
                             <ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="vm:KindBreakdown">
-                                    <Grid AutomationProperties.Name="{x:Bind AccessibleName}" Style="{StaticResource PanelRowStyle}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <Border Style="{StaticResource RowIconTileStyle}">
-                                            <FontIcon FontSize="20" Glyph="{x:Bind Glyph}" />
-                                        </Border>
-                                        <StackPanel
-                                            Grid.Column="1"
-                                            VerticalAlignment="Center"
-                                            Spacing="2">
-                                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind Name}" />
+                                    <Button
+                                        Padding="20,10,12,10"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch"
+                                        AutomationProperties.Name="{x:Bind AccessibleName}"
+                                        Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                                        BorderThickness="0"
+                                        Click="KindRow_Click"
+                                        CornerRadius="0"
+                                        Tag="{x:Bind}"
+                                        ToolTipService.ToolTip="{x:Bind Explanation}">
+                                        <Grid ColumnSpacing="12" RowSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="20" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <FontIcon
+                                                Grid.RowSpan="2"
+                                                VerticalAlignment="Center"
+                                                FontSize="18"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Glyph="{x:Bind Glyph}" />
                                             <TextBlock
+                                                Grid.Column="1"
+                                                Text="{x:Bind Name}"
+                                                TextTrimming="CharacterEllipsis" />
+                                            <TextBlock
+                                                Grid.Column="2"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind Explanation}"
-                                                TextWrapping="Wrap" />
-                                        </StackPanel>
-                                        <StackPanel
-                                            Grid.Column="2"
-                                            HorizontalAlignment="Right"
-                                            VerticalAlignment="Center">
-                                            <TextBlock
-                                                HorizontalAlignment="Right"
-                                                Style="{StaticResource BodyStrongTextBlockStyle}"
-                                                Text="{x:Bind OnText}" />
-                                            <TextBlock
-                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Center"
+                                                Text="{x:Bind CountText}" />
+                                            <ProgressBar
+                                                Grid.Row="1"
+                                                Grid.Column="1"
+                                                Grid.ColumnSpan="2"
+                                                AutomationProperties.AccessibilityView="Raw"
+                                                Maximum="100"
+                                                Value="{x:Bind Percent}" />
+                                            <FontIcon
+                                                Grid.RowSpan="2"
+                                                Grid.Column="3"
+                                                VerticalAlignment="Center"
+                                                FontSize="12"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind TotalText}" />
-                                        </StackPanel>
-                                    </Grid>
+                                                Glyph="&#xE76C;" />
+                                        </Grid>
+                                    </Button>
                                 </DataTemplate>
                             </ItemsRepeater.ItemTemplate>
                         </ItemsRepeater>
@@ -683,30 +854,64 @@
                                 Grid.Column="1"
                                 AutomationProperties.AutomationId="OverviewOpenHistory"
                                 AutomationProperties.Name="Open History"
-                                Click="OpenHistory_Click"
-                                Content="History" />
+                                Click="OpenHistory_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="History" />
+                                        <FontIcon
+                                            VerticalAlignment="Center"
+                                            FontSize="10"
+                                            Glyph="&#xE76C;" />
+                                    </StackPanel>
+                            </HyperlinkButton>
                         </Grid>
-                        <ItemsRepeater ItemsSource="{x:Bind ViewModel.Recent, Mode=OneWay}">
+                        <!-- A short timeline: newest first, joined by a line down the icons. -->
+                        <ItemsRepeater Margin="0,0,0,12" ItemsSource="{x:Bind ViewModel.Recent, Mode=OneWay}">
                             <ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="vm:RecentChange">
-                                    <Grid AutomationProperties.Name="{x:Bind AccessibleName}" Style="{StaticResource PanelRowStyle}">
+                                    <Grid
+                                        Padding="20,0,20,0"
+                                        AutomationProperties.Name="{x:Bind AccessibleName}"
+                                        ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="28" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <Border Style="{StaticResource RowIconTileStyle}">
-                                            <FontIcon FontSize="18" Glyph="{x:Bind Glyph}" />
+                                        <Border
+                                            Width="1"
+                                            Margin="0,28,0,0"
+                                            HorizontalAlignment="Center"
+                                            Background="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                            Visibility="{x:Bind local:Ui.Visible(HasNext)}" />
+                                        <Border
+                                            Width="28"
+                                            Height="28"
+                                            VerticalAlignment="Top"
+                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                            CornerRadius="14">
+                                            <FontIcon FontSize="12" Glyph="{x:Bind Glyph}" />
                                         </Border>
                                         <StackPanel
                                             Grid.Column="1"
-                                            VerticalAlignment="Center"
+                                            Margin="0,3,0,16"
                                             Spacing="2">
                                             <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind Detail}"
-                                                TextTrimming="CharacterEllipsis" />
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="{x:Bind AppName}"
+                                                    TextTrimming="CharacterEllipsis"
+                                                    TextWrapping="NoWrap" />
+                                                <TextBlock
+                                                    Grid.Column="1"
+                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="{x:Bind When}" />
+                                            </Grid>
                                         </StackPanel>
                                     </Grid>
                                 </DataTemplate>

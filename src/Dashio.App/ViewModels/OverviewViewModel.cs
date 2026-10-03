@@ -81,15 +81,17 @@ public sealed partial class UsageRowViewModel : ObservableObject
 }
 
 /// <summary>One line of the "Recent changes" panel.</summary>
-public sealed record RecentChange(string Glyph, string Title, string Detail)
+/// <param name="IsLast">The last line has no connector running down to a next one.</param>
+public sealed record RecentChange(string Glyph, string Title, string AppName, string When, bool IsLast)
 {
-    public string AccessibleName => $"{Title}, {Detail}";
+    public string AccessibleName => $"{Title}, {AppName}, {When}";
+    public bool HasNext => !IsLast;
 }
 
 public sealed partial class OverviewViewModel : ObservableObject
 {
     private const int TopCount = 6;
-    private const int RecentCount = 4;
+    private const int RecentCount = 5;
 
     public ObservableCollection<UsageRowViewModel> TopMemory { get; } = [];
     public ObservableCollection<UsageRowViewModel> TopCpu { get; } = [];
@@ -108,6 +110,10 @@ public sealed partial class OverviewViewModel : ObservableObject
     /// <summary>Shown in place of the list when there is nothing to list, or no way to tell.</summary>
     [ObservableProperty]
     public partial string UnusedNote { get; set; } = "";
+
+    /// <summary>The list of unopened apps needs the administrator check before it can say anything.</summary>
+    [ObservableProperty]
+    public partial bool NeedsAdminCheck { get; set; }
 
     [ObservableProperty]
     public partial string DiskValue { get; set; } = "";
@@ -143,6 +149,7 @@ public sealed partial class OverviewViewModel : ObservableObject
 
         if (inventory.CoversFrom is { } since)
         {
+            NeedsAdminCheck = false;
             UnusedCaption = unused.Count == 0
                 ? $"Going by Windows' records since {since:d MMMM}"
                 : $"{ItemText.Plural(unused.Count, "app")} with no sign of being opened since {since:d MMMM}, " +
@@ -151,10 +158,10 @@ public sealed partial class OverviewViewModel : ObservableObject
         }
         else
         {
+            var evidence = LastOpenedEvidence.Of(inventory);
             UnusedCaption = "Apps you can open but have not";
-            UnusedNote = inventory.ReachesBackTo is null
-                ? "Windows is not keeping a list of the apps you open on this PC, so Dashio cannot tell yet. Choose See all to check with administrator rights."
-                : "Windows' records on this PC are too short to call any app unused.";
+            NeedsAdminCheck = evidence.NeedsAdminCheck;
+            UnusedNote = evidence.NeedsAdminCheck ? "" : evidence.Text;
         }
     }
 
@@ -250,6 +257,10 @@ public sealed partial class OverviewViewModel : ObservableObject
     [ObservableProperty]
     public partial IReadOnlyList<KindBreakdown> Kinds { get; set; } = [];
 
+    /// <summary>"2 new in the last two weeks", or empty when nothing was added.</summary>
+    [ObservableProperty]
+    public partial string NewItemsText { get; set; } = "";
+
     [ObservableProperty]
     public partial IReadOnlyList<RecentChange> Recent { get; set; } = [];
 
@@ -269,19 +280,26 @@ public sealed partial class OverviewViewModel : ObservableObject
             HiddenCount = stats.NotInTaskManager.ToString();
             RunningCount = stats.RunningServices.ToString();
             Kinds = stats.Kinds;
+            var now = DateTimeOffset.Now;
+            var added = StartupStats.ShownGroups().SelectMany(g => g.Items).Count(i => state.Seen.NewSince(i.Item.Id, now) is not null);
+            NewItemsText = added == 0 ? "" : $"{ItemText.Plural(added, "new item")} in the last two weeks";
             AtStartupName = $"{ItemText.Plural(stats.AtStartup, "app")} start with Windows. Show them.";
             HiddenName = $"{ItemText.Plural(stats.NotInTaskManager, "app")} start with Windows without being in Task Manager. Show them.";
-            RunningName = $"{ItemText.Plural(stats.RunningServices, "service")} running now. Show all apps.";
+            RunningName = $"{ItemText.Plural(stats.RunningServices, "service")} running now. Show the services.";
         }
 
-        Recent = state.Journal
+        var recent = state.Journal
             .Where(e => e.Result == JournalResult.Applied)
             .OrderByDescending(e => e.Time)
             .Take(RecentCount)
-            .Select(e => new RecentChange(
+            .ToList();
+        Recent = recent
+            .Select((e, index) => new RecentChange(
                 ItemText.ActionGlyph(e.Action),
                 $"{ItemText.Done(e.Action)} {e.ItemName}",
-                $"{e.AppName} · {When(e.Time.LocalDateTime)}"))
+                e.AppName,
+                When(e.Time.LocalDateTime),
+                index == recent.Count - 1))
             .ToList();
         HasNoRecent = Recent.Count == 0;
     }

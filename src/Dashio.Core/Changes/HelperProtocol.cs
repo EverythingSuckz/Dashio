@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Dashio.Core.Inventory;
 using Dashio.Core.Models;
 using Dashio.Core.Processes;
+using Dashio.Core.Storage;
 
 namespace Dashio.Core.Changes;
 
@@ -22,6 +23,9 @@ public sealed record HelperResponse(
     IReadOnlyList<ChangeResult> Results, string? Error = null, IReadOnlyList<EndResult>? EndResults = null);
 
 public sealed record TaskScanResponse(IReadOnlyList<AutostartItem> Items, string? Error = null);
+
+/// <param name="FromTable">Read from the drive's file table, as opposed to folder by folder.</param>
+public sealed record DriveReadResponse(bool FromTable, string? Error = null);
 
 public static class HelperJson
 {
@@ -134,6 +138,21 @@ public sealed class HelperRequestProcessor
         return reason.Length == 0;
     }
 
+    /// <summary>Where the helper puts the tree of a drive it read: beside the response, under the same id.</summary>
+    public static string TreePathFor(string responsePath) => Sibling(responsePath, ".tree.bin");
+
+    /// <summary>Where the helper says how far a long reading has got.</summary>
+    public static string ProgressPathFor(string responsePath) => Sibling(responsePath, ".progress.txt");
+
+    private static string Sibling(string responsePath, string ending)
+    {
+        const string ResponseEnding = ".response.json";
+        var stem = responsePath.EndsWith(ResponseEnding, StringComparison.OrdinalIgnoreCase)
+            ? responsePath[..^ResponseEnding.Length]
+            : Path.ChangeExtension(responsePath, null);
+        return stem + ending;
+    }
+
     private static bool IsUnder(string path, string folder) =>
         folder.Length > 0 && path.StartsWith(folder.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase);
 }
@@ -147,6 +166,8 @@ public sealed record HelperScanResult(bool Cancelled, IReadOnlyList<AutostartIte
 
 public sealed record HelperPrefetchResult(bool Cancelled, IReadOnlyList<PrefetchEntry> Entries, string? Error = null);
 
+public sealed record HelperDriveResult(bool Cancelled, SavedReading? Reading, string? Error = null);
+
 /// <summary>Starts the elevated helper. Abstracted so the change flow can be tested without elevation.</summary>
 public interface IHelperLauncher
 {
@@ -159,6 +180,10 @@ public interface IHelperLauncher
 
     /// <summary>Reads when each program last ran, which only an administrator may.</summary>
     Task<HelperPrefetchResult> ScanPrefetchAsync(CancellationToken cancellation = default);
+
+    /// <summary>Reads every folder of a fixed drive, including the ones Windows protects.</summary>
+    /// <param name="progress">Called on the caller's thread with how far it has got, 0 to 1.</param>
+    Task<HelperDriveResult> ReadDriveAsync(char letter, Action<double>? progress = null, CancellationToken cancellation = default);
 }
 
 /// <summary>Runs <c>Dashio.Helper.exe</c> behind one Windows admin prompt and reads back its response file.</summary>
@@ -253,6 +278,63 @@ public sealed class HelperLauncher : IHelperLauncher
         }
     }
 
+    public async Task<HelperDriveResult> ReadDriveAsync(
+        char letter, Action<double>? progress = null, CancellationToken cancellation = default)
+    {
+        var (requestPath, responsePath) = NewPaths();
+        var treePath = HelperRequestProcessor.TreePathFor(responsePath);
+        var progressPath = HelperRequestProcessor.ProgressPathFor(responsePath);
+        try
+        {
+            File.WriteAllText(requestPath, "{}");
+            var run = await RunAsync(
+                $"--read-drive {char.ToUpperInvariant(letter)} --request \"{requestPath}\" --response \"{responsePath}\"",
+                cancellation,
+                () =>
+                {
+                    if (progress is not null && ReadProgress(progressPath) is { } fraction)
+                        progress(fraction);
+                });
+            if (run.Cancelled)
+                return new HelperDriveResult(true, null);
+            if (run.Error is not null)
+                return new HelperDriveResult(false, null, run.Error);
+
+            var response = ReadResponse<DriveReadResponse>(responsePath);
+            if (response is null)
+                return new HelperDriveResult(false, null, "The helper did not report a result.");
+            if (response.Error is not null)
+                return new HelperDriveResult(false, null, response.Error);
+
+            var reading = await Task.Run(() => FolderTreeFile.Load(treePath), cancellation);
+            return reading is null
+                ? new HelperDriveResult(false, null, "The helper's reading of the drive could not be opened.")
+                : new HelperDriveResult(false, reading);
+        }
+        finally
+        {
+            TryDelete(requestPath);
+            TryDelete(responsePath);
+            TryDelete(treePath);
+            TryDelete(progressPath);
+        }
+    }
+
+    private static double? ReadProgress(string path)
+    {
+        try
+        {
+            return File.Exists(path) &&
+                   double.TryParse(File.ReadAllText(path), System.Globalization.CultureInfo.InvariantCulture, out var fraction)
+                ? fraction
+                : null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
     private (string Request, string Response) NewPaths()
     {
         Directory.CreateDirectory(_workFolder);
@@ -260,7 +342,9 @@ public sealed class HelperLauncher : IHelperLauncher
         return (Path.Combine(_workFolder, $"{id}.request.json"), Path.Combine(_workFolder, $"{id}.response.json"));
     }
 
-    private async Task<(bool Cancelled, string? Error)> RunAsync(string arguments, CancellationToken cancellation)
+    /// <param name="whileWaiting">Called every so often while the helper runs, for a long job that reports progress.</param>
+    private async Task<(bool Cancelled, string? Error)> RunAsync(
+        string arguments, CancellationToken cancellation, Action? whileWaiting = null)
     {
         if (!File.Exists(_helperPath))
             return (false, $"The helper was not found at {_helperPath}.");
@@ -277,7 +361,16 @@ public sealed class HelperLauncher : IHelperLauncher
             }), cancellation);
             if (process is null)
                 return (false, "The helper could not be started.");
-            await process.WaitForExitAsync(cancellation);
+            if (whileWaiting is null)
+            {
+                await process.WaitForExitAsync(cancellation);
+                return (false, null);
+            }
+            while (!process.HasExited)
+            {
+                whileWaiting();
+                await Task.Delay(300, cancellation);
+            }
             return (false, null);
         }
         catch (Win32Exception e) when (e.NativeErrorCode == ErrorCancelled)

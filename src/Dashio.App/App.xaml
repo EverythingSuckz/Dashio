@@ -62,6 +62,43 @@
                 <Setter Property="TextWrapping" Value="NoWrap" />
             </Style>
 
+            <!-- The strip of column headings above a table. -->
+            <Style x:Key="TableHeaderStyle" TargetType="Grid">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="{StaticResource ControlCornerRadius}" />
+            </Style>
+
+            <!-- A column heading that sorts when pressed. -->
+            <Style x:Key="ColumnHeaderButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{ThemeResource SubtleFillColorTransparentBrush}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <!-- The negative margin lets the hover highlight extend left while the label stays on the column edge. -->
+                <Setter Property="Margin" Value="-8,0,0,0" />
+                <Setter Property="Padding" Value="8,6,8,6" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Style>
+            <!-- The same, over a column of figures that line up on the right. -->
+            <Style
+                x:Key="ColumnHeaderRightButtonStyle"
+                BasedOn="{StaticResource ColumnHeaderButtonStyle}"
+                TargetType="Button">
+                <Setter Property="Margin" Value="0,0,-8,0" />
+                <Setter Property="HorizontalContentAlignment" Value="Right" />
+            </Style>
+
+            <!-- A small borderless button for an action on one row of a table. -->
+            <Style x:Key="TableActionButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="{ThemeResource SubtleFillColorTransparentBrush}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="8" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
             <!-- Paths, commands and registry keys. -->
             <FontFamily x:Key="CodeFontFamily">Cascadia Mono, Consolas</FontFamily>
 

@@ -32,6 +32,24 @@ public sealed partial class SettingsPage : Page
         _loading = false;
     }
 
+    /// <summary>The search box opens this page with the name of the control to go to.</summary>
+    protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    {
+        if (e.Parameter is not string name || FindName(name) is not Control control)
+            return;
+
+        void Show()
+        {
+            control.StartBringIntoView();
+            control.Focus(FocusState.Keyboard);
+        }
+
+        if (control.IsLoaded)
+            Show();
+        else
+            control.Loaded += (_, _) => Show();
+    }
+
     private void ThemeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading)
@@ -56,6 +74,19 @@ public sealed partial class SettingsPage : Page
             return;
         AppServices.Settings.ShowWindowsComponents = ShowWindowsSwitch.IsOn;
         AppServices.Settings.Save();
+    }
+
+    private async void Rescan_Click(object sender, RoutedEventArgs e)
+    {
+        RescanButton.IsEnabled = false;
+        try
+        {
+            await AppServices.State.RefreshAsync();
+        }
+        finally
+        {
+            RescanButton.IsEnabled = true;
+        }
     }
 
     private async void AdminScan_Click(object sender, RoutedEventArgs e)

@@ -10,9 +10,9 @@
 # HKCU ("DashioUiTest", pointing at a file that does not exist) and removes it at the end.
 # Nothing here needs administrator rights.
 #
-# The test window opens in the background and is driven through UI Automation, not the real
-# mouse or keyboard, so you can keep working while it runs (about a minute). Just do not click
-# or type in the test window itself.
+# The test window never comes to the front and sits off the screen. It is driven through UI
+# Automation, not the real mouse or keyboard, so you can keep working while it runs (about two
+# minutes). The last test fails if the window took the front or showed on the screen at any point.
 
 param(
     [string]$Configuration = 'Debug',
@@ -33,10 +33,15 @@ $dataFolder = Join-Path ([System.IO.Path]::GetTempPath()) "dashio-ui-data-$([gui
 
 $pass = 0; $fail = 0; $results = @()
 
+# Watches the whole run for the test window coming to the front or appearing on the screen.
+Add-Type -Path (Join-Path $PSScriptRoot 'FrontWatch.cs')
+[FrontWatch]::Start()
+
 function Test-UI {
     param([string]$Name, [scriptblock]$Script)
     # Inside $Script use 'throw' to fail; a non-zero exit code from winapp also fails.
     try {
+        [FrontWatch]::Step = $Name
         $global:LASTEXITCODE = 0
         $output = & $Script 2>&1
         if ($LASTEXITCODE -eq 0) {
@@ -62,6 +67,12 @@ function Find-Selector([string]$Text, [string]$Type, [string]$ExactName) {
     } | Select-Object -First 1
     if (-not $match) { throw "No $Type matching '$Text' was found." }
     return $match.selector
+}
+
+# Types into a filter or search box. The box is a group; the text goes into the edit field inside it.
+function Set-Box([string]$Name, [string]$Text) {
+    $selector = Find-Selector $Name 'Edit'
+    winapp ui set-value $selector $Text -a $AppPid -w $hwnd | Out-Null
 }
 
 function Get-ApprovedFlag {
@@ -110,10 +121,11 @@ Set-ItemProperty $runKey -Name $testName -Value 'C:\DashioUiTest\does-not-exist.
 Remove-ItemProperty $approvedKey -Name $testName -ErrorAction SilentlyContinue
 
 $env:DASHIO_DATA_DIR = $dataFolder
-# Open the test window without taking focus, so it does not interrupt whoever is using the PC.
+# The test window refuses activation and opens off the screen, so it does not interrupt whoever is using the PC.
 $env:DASHIO_NO_ACTIVATE = '1'
 $process = Start-Process $exe -PassThru
 $AppPid = $process.Id
+[FrontWatch]::ProcessId = $AppPid
 Remove-Item Env:\DASHIO_DATA_DIR, Env:\DASHIO_NO_ACTIVATE
 
 try {
@@ -162,7 +174,7 @@ try {
         # Nothing was ended, so the app is still listed as running.
         winapp ui wait-for 'DetailUsage' -a $AppPid -w $hwnd --value 'process' --contains -t 3000
     }
-    Test-UI 'A startup tile opens the Apps page' {
+    Test-UI 'A startup tile opens the Apps page on its tab' {
         winapp ui invoke 'NavOverview' -a $AppPid -w $hwnd | Out-Null
         winapp ui wait-for 'TileAtStartup' -a $AppPid -w $hwnd -t 5000 | Out-Null
         winapp ui invoke 'TileAtStartup' -a $AppPid -w $hwnd | Out-Null
@@ -172,49 +184,129 @@ try {
         winapp ui invoke 'FilterAll' -a $AppPid -w $hwnd
     }
 
-    # ─── Installed: sizes and last opened ───
-    Test-UI 'Installed lists apps with their sizes' {
-        winapp ui invoke 'NavInstalled' -a $AppPid -w $hwnd | Out-Null
-        winapp ui wait-for 'InstalledLoading' -a $AppPid -w $hwnd --gone -t 60000 | Out-Null
-        winapp ui wait-for 'InstalledSummary' -a $AppPid -w $hwnd --value 'taking' --contains -t 10000 | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw 'The summary never showed a total.' }
-        $found = winapp ui search 'B' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
-        $script:installedRows = @($found.matches | Where-Object { $_.type -eq 'ListItem' -and $_.name -match '\d (MB|GB)' })
-        if ($script:installedRows.Count -lt 3) { throw "Only $($script:installedRows.Count) apps show a size." }
+    # ─── Processes: everything running, grouped by app ───
+    Test-UI 'Processes lists the running apps' {
+        winapp ui invoke 'NavProcesses' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'ProcessesLoading' -a $AppPid -w $hwnd --gone -t 60000 | Out-Null
+        winapp ui wait-for 'ProcessesMemory' -a $AppPid -w $hwnd --value 'B' --contains -t 10000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'No memory figure appeared.' }
+        $found = winapp ui search 'processor' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
+        $rows = @($found.matches | Where-Object { $_.type -eq 'ListItem' -and $_.name -match 'collapsed' })
+        if ($rows.Count -lt 3) { throw "Only $($rows.Count) running apps were listed." }
         $global:LASTEXITCODE = 0
     }
-    Save-Shot '00-installed'
-    Test-UI 'The Not opened lately tab says what it rests on' {
-        winapp ui invoke 'InstalledUnused' -a $AppPid -w $hwnd | Out-Null
-        winapp ui wait-for 'InstalledEvidence' -a $AppPid -w $hwnd -t 5000 | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw 'No explanation was shown.' }
-        Save-Shot '00-not-opened'
-        winapp ui invoke 'InstalledAll' -a $AppPid -w $hwnd
+    Test-UI 'Pressing a running app shows its processes' {
+        # A row's name carries its live figures, so a row found a moment ago may already read differently.
+        foreach ($attempt in 1..4) {
+            $found = winapp ui search 'collapsed' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
+            $row = $found.matches | Where-Object { $_.type -eq 'ListItem' -and $_.name -notmatch '^(Windows|Dashio),' } | Select-Object -First 1
+            winapp ui invoke $row.selector -a $AppPid -w $hwnd 2>$null | Out-Null
+            Start-Sleep -Milliseconds 800
+            $children = winapp ui search 'Process ' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
+            $shown = @($children.matches | Where-Object { $_.type -eq 'ListItem' -and $_.name -match 'Process \d+' })
+            if ($shown.Count -gt 0) { break }
+        }
+        if ($shown.Count -eq 0) { throw 'No process rows appeared under the app.' }
+        $global:LASTEXITCODE = 0
     }
-    Test-UI 'An installed app shows where its files are' {
+    Save-Shot '00-processes'
+    Test-UI 'The process filter narrows the list' {
+        Set-Box 'Filter processes' 'no-such-program-anywhere'
+        winapp ui wait-for 'ProcessesSummary' -a $AppPid -w $hwnd --value 'no-such-program-anywhere' --contains -t 5000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'The summary did not mention the filter.' }
+        Set-Box 'Filter processes' ''
+        winapp ui wait-for 'ProcessesSummary' -a $AppPid -w $hwnd --value 'grouped by the app' --contains -t 5000
+    }
+
+    # ─── Storage: sizes ───
+    Test-UI 'Storage shows the drives and offers to scan one' {
+        winapp ui invoke 'NavStorage' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'StorageStartScan' -a $AppPid -w $hwnd -t 5000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'The offer to scan the drive is missing.' }
+        $found = winapp ui search ' free' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
+        $drives = @($found.matches | Where-Object { $_.type -eq 'Button' -and $_.name -match 'used of' })
+        if ($drives.Count -lt 1) { throw 'No drive is shown.' }
+        winapp ui wait-for 'StorageAdminCheck' -a $AppPid -w $hwnd -t 3000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'The choice to scan as administrator is missing.' }
+        $global:LASTEXITCODE = 0
+    }
+    Save-Shot '00-storage-folders'
+    Test-UI 'Storage leads to the apps, largest first' {
+        winapp ui invoke 'StorageAppsBySize' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'AppsSummary' -a $AppPid -w $hwnd -t 5000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'The Apps page did not open.' }
+        # Sizes arrive once the installed list has been built and its folders measured.
+        $deadline = (Get-Date).AddSeconds(60)
+        do {
+            Start-Sleep -Milliseconds 1000
+            $found = winapp ui search 'B' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
+            $script:sizedRows = @($found.matches | Where-Object { $_.type -eq 'ListItem' -and $_.name -match '\d (MB|GB)' })
+        } while ($script:sizedRows.Count -lt 3 -and (Get-Date) -lt $deadline)
+        if ($script:sizedRows.Count -lt 3) { throw "Only $($script:sizedRows.Count) apps show a size." }
+        $global:LASTEXITCODE = 0
+    }
+    Save-Shot '00-apps-by-size'
+    Test-UI 'An app opened from the list shows where its files are' {
         $found = winapp ui search 'GB' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
         # "about 75 GB" is a size Windows recorded for an app with no folder to show.
-        $row = $found.matches | Where-Object { $_.type -eq 'ListItem' -and $_.name -notmatch 'about' } | Select-Object -First 1
+        $row = $found.matches | Where-Object { $_.type -eq 'ListItem' -and $_.name -match '\d GB' -and $_.name -notmatch 'about' } | Select-Object -First 1
         winapp ui invoke $row.selector -a $AppPid -w $hwnd | Out-Null
         winapp ui wait-for 'DetailStorage' -a $AppPid -w $hwnd --value 'B' --contains -t 8000
     }
-    Save-Shot '00-installed-detail'
+    Save-Shot '00-storage-detail'
+    Test-UI 'Uninstall asks first and can be cancelled' {
+        winapp ui invoke 'UninstallButton' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'PrimaryButton' -a $AppPid -w $hwnd --value 'Uninstall' -t 4000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'No confirmation appeared.' }
+        Save-Shot '00-uninstall-confirm'
+        # Cancel: nothing is started.
+        winapp ui invoke 'CloseButton' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'PrimaryButton' -a $AppPid -w $hwnd --gone -t 3000 | Out-Null
+        winapp ui wait-for 'UninstallButton' -a $AppPid -w $hwnd -t 3000
+    }
 
     # ─── First scan and shell ───
     Test-UI 'First scan finishes with a summary' {
         winapp ui invoke 'NavApps' -a $AppPid -w $hwnd | Out-Null
         # The scanning message is on screen from the start and goes when the first scan is done.
         winapp ui wait-for 'ScanStatus' -a $AppPid -w $hwnd --gone -t 60000 | Out-Null
-        winapp ui wait-for 'AppsSummary' -a $AppPid -w $hwnd --value 'page per app' --contains -t 5000
+        winapp ui wait-for 'AppsSummary' -a $AppPid -w $hwnd --value 'apps on this PC' --contains -t 5000
     }
-    foreach ($id in 'NavApps', 'NavInstalled', 'NavAllItems', 'NavHistory', 'SearchBox', 'RefreshButton', 'ViewMenu',
-        'HomeButton', 'LayoutToggle', 'FilterAll', 'FilterAtStartup', 'FilterNotInTaskManager') {
+    Test-UI 'Components are left out of the list until asked for' {
+        $summary = { (winapp ui get-value 'AppsSummary' -a $AppPid -w $hwnd 2>$null | Select-Object -First 1) -replace '\D.*$' }
+        $link = {
+            param($text)
+            (winapp ui search $text -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json).matches |
+                Where-Object { $_.type -eq 'Hyperlink' } | Select-Object -First 1
+        }
+        $before = [int](& $summary)
+        $show = & $link 'Show them'
+        if (-not $show) { throw 'Nothing says that components are left out.' }
+        winapp ui invoke $show.selector -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'AppsComponents' -a $AppPid -w $hwnd --value 'Including' --contains -t 5000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'The components did not appear.' }
+        $with = [int](& $summary)
+        if ($with -le $before) { throw "Showing the components did not add any: $before, then $with." }
+
+        winapp ui invoke (& $link 'Leave them out').selector -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'AppsComponents' -a $AppPid -w $hwnd --value 'left out' --contains -t 5000
+    }
+    foreach ($id in 'NavProcesses', 'NavApps', 'NavStorage', 'NavStartup', 'NavHistory', 'SearchBox', 'ViewMenu',
+        'HomeButton', 'LayoutToggle', 'AppsFilter', 'FilterAll', 'FilterRunning', 'FilterAtStartup', 'FilterNotInTaskManager', 'FilterUnused') {
         Test-UI "$id exists" { winapp ui wait-for $id -a $AppPid -w $hwnd -t 3000 }
     }
-    Test-UI 'The app list has app cards' {
-        $tree = winapp ui inspect -a $AppPid -w $hwnd --interactive --json --depth 14 2>$null | ConvertFrom-Json
-        $cards = @($tree.windows[0].elements | Where-Object { $_.name -match 'at startup' })
-        if ($cards.Count -lt 3) { throw "Only $($cards.Count) app cards were found." }
+    Test-UI 'The Not opened lately tab says what it rests on' {
+        winapp ui invoke 'FilterUnused' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'AppsEvidence' -a $AppPid -w $hwnd -t 5000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'No explanation was shown.' }
+        Save-Shot '00-not-opened'
+        winapp ui invoke 'FilterAll' -a $AppPid -w $hwnd
+    }
+    Test-UI 'The app list has a row per app' {
+        $found = winapp ui search 'start with Windows' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
+        $rows = @($found.matches | Where-Object { $_.type -eq 'ListItem' })
+        if ($rows.Count -lt 3) { throw "Only $($rows.Count) app rows were found." }
+        $global:LASTEXITCODE = 0
     }
     Save-Shot '01-apps'
 
@@ -233,24 +325,37 @@ try {
         winapp ui wait-for 'Show as a list' -a $AppPid -w $hwnd -t 3000 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'The button did not offer the list after switching to the grid.' }
         Start-Sleep -Milliseconds 600
-        $tree = winapp ui inspect -a $AppPid -w $hwnd --interactive --json --depth 14 2>$null | ConvertFrom-Json
-        $tiles = @($tree.windows[0].elements | Where-Object { $_.name -match 'at startup' })
+        $found = winapp ui search 'start with Windows' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
+        $tiles = @($found.matches | Where-Object { $_.type -eq 'Button' })
         if ($tiles.Count -lt 3) { throw "Only $($tiles.Count) app tiles were found." }
         Save-Shot '01-apps-grid'
         winapp ui invoke 'LayoutToggle' -a $AppPid -w $hwnd | Out-Null
         winapp ui wait-for 'Show as a grid' -a $AppPid -w $hwnd -t 3000
     }
 
-    # ─── Search ───
-    Test-UI 'Search narrows the list to the test entry' {
-        winapp ui set-value 'TextBox' $testName -a $AppPid -w $hwnd | Out-Null
+    # ─── Search: jump to something by name ───
+    Test-UI 'Search suggests the test entry and opens its app' {
+        Set-Box 'Search Dashio' $testName
+        Start-Sleep -Milliseconds 1200
+        # The suggestions open in a window of their own.
+        $found = winapp ui search $testName -a $AppPid --json 2>$null | ConvertFrom-Json
+        $suggestion = $found.matches | Where-Object { $_.type -eq 'ListItem' -and $_.name -match 'App' } | Select-Object -First 1
+        if (-not $suggestion) { throw 'The app was not suggested.' }
+        winapp ui invoke $suggestion.selector -a $AppPid | Out-Null
+        winapp ui wait-for 'DetailTitle' -a $AppPid -w $hwnd --value $testName -t 5000
+    }
+
+    # ─── The filter of the Apps page ───
+    Test-UI 'The filter narrows the list to the test entry' {
+        winapp ui invoke 'NavApps' -a $AppPid -w $hwnd | Out-Null
+        Set-Box 'Filter apps' $testName
         winapp ui wait-for 'AppsSummary' -a $AppPid -w $hwnd --value '1 app matches' --contains -t 5000
     }
 
     # ─── Detail page ───
     Test-UI 'Opening the app shows its detail page' {
-        $card = Find-Selector $testName 'Button'
-        winapp ui invoke $card -a $AppPid -w $hwnd | Out-Null
+        $row = Find-Selector $testName 'ListItem'
+        winapp ui invoke $row -a $AppPid -w $hwnd | Out-Null
         winapp ui wait-for 'DetailTitle' -a $AppPid -w $hwnd --value $testName -t 5000
     }
     Test-UI 'The detail page offers Turn off all' { winapp ui wait-for 'TurnAllButton' -a $AppPid -w $hwnd -t 3000 }
@@ -318,22 +423,51 @@ try {
     }
     Save-Shot '05-history'
 
-    # ─── All items ───
-    Test-UI 'All items lists the entry in a table' {
-        winapp ui invoke 'NavAllItems' -a $AppPid -w $hwnd | Out-Null
-        winapp ui wait-for 'ItemsSummary' -a $AppPid -w $hwnd --value '1 item across 1 app' --contains -t 5000
+    # ─── Startup ───
+    Test-UI 'Startup lists the entry in a table' {
+        winapp ui invoke 'NavStartup' -a $AppPid -w $hwnd | Out-Null
+        Set-Box 'Filter startup items' $testName
+        winapp ui wait-for 'StartupSummary' -a $AppPid -w $hwnd --value '1 item across 1 app' --contains -t 5000
     }
-    Test-UI 'Clearing the search shows everything again' {
-        winapp ui set-value 'TextBox' '' -a $AppPid -w $hwnd | Out-Null
-        winapp ui wait-for 'ItemsSummary' -a $AppPid -w $hwnd --value 'apps' --contains -t 5000
+    Save-Shot '06-startup'
+    Test-UI 'Startup says what an item is using now' {
+        winapp ui wait-for 'SortMemory' -a $AppPid -w $hwnd -t 3000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'The Memory column is missing.' }
+        # The test entry points at a file that does not exist, so nothing of it can be running.
+        $row = (winapp ui search $testName -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json).matches |
+            Where-Object { $_.type -eq 'ListItem' } | Select-Object -First 1
+        if (-not $row) { throw 'The test entry is not listed.' }
+        $found = winapp ui search 'Not running' -a $AppPid -w $hwnd --json 2>$null | ConvertFrom-Json
+        if ($found.matchCount -lt 1) { throw 'The entry does not say it is not running.' }
+        $global:LASTEXITCODE = 0
     }
-    Save-Shot '06-all-items'
+    Test-UI 'The switch on a Startup row queues a change' {
+        $switch = Find-Selector $testName 'Button' $testName
+        winapp ui invoke $switch -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'PendingTitle' -a $AppPid -w $hwnd --value '1 change' --contains -t 3000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'The pending bar did not appear.' }
+        winapp ui invoke 'DiscardButton' -a $AppPid -w $hwnd | Out-Null
+        winapp ui wait-for 'PendingTitle' -a $AppPid -w $hwnd --gone -t 3000
+    }
+    Test-UI 'Clearing the filters shows everything again' {
+        Set-Box 'Filter startup items' ''
+        winapp ui wait-for 'StartupSummary' -a $AppPid -w $hwnd --value 'apps' --contains -t 5000 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'The Startup filter did not clear.' }
+        foreach ($id in 'KindAll', 'KindService', 'KindScheduledTask', 'KindRunKey') {
+            winapp ui wait-for $id -a $AppPid -w $hwnd -t 3000 | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "The $id tab is missing." }
+        }
+        winapp ui invoke 'NavApps' -a $AppPid -w $hwnd | Out-Null
+        Set-Box 'Filter apps' ''
+        winapp ui wait-for 'AppsSummary' -a $AppPid -w $hwnd --value 'apps on this PC' --contains -t 5000
+    }
 
     # ─── Settings and themes ───
     Test-UI 'Settings opens with the Windows theme selected' {
         winapp ui invoke 'SettingsItem' -a $AppPid -w $hwnd | Out-Null
         winapp ui wait-for 'ThemeBox' -a $AppPid -w $hwnd --value 'Use Windows setting' -t 5000
     }
+    Test-UI 'Settings can scan again' { winapp ui wait-for 'RescanButton' -a $AppPid -w $hwnd -t 3000 }
     Test-UI 'Settings has the admin scan' { winapp ui wait-for 'AdminScanButton' -a $AppPid -w $hwnd -t 3000 }
     Test-UI 'Settings has the last-opened check' { winapp ui wait-for 'UsageCheckButton' -a $AppPid -w $hwnd -t 3000 }
     Test-UI 'Settings has the refresh interval' {
@@ -362,8 +496,18 @@ try {
         winapp ui invoke 'HomeButton' -a $AppPid -w $hwnd | Out-Null
         winapp ui wait-for 'OverviewTitle' -a $AppPid -w $hwnd -t 5000
     }
+
+    # ─── Not interrupting ───
+    Test-UI 'The test window never came to the front or onto the screen' {
+        [FrontWatch]::Stop()
+        if ([FrontWatch]::Problems.Count -gt 0) {
+            throw "In front for $([FrontWatch]::MillisecondsInFront) ms, on screen for $([FrontWatch]::MillisecondsOnScreen) ms: $([FrontWatch]::Problems -join '; ')"
+        }
+        $global:LASTEXITCODE = 0
+    }
 }
 finally {
+    [FrontWatch]::Stop()
     # ─── Clean up ───
     if (-not $process.HasExited) { $process.Kill(); $process.WaitForExit(5000) | Out-Null }
     Remove-ItemProperty $runKey -Name $testName -ErrorAction SilentlyContinue

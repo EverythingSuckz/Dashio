@@ -27,6 +27,9 @@ public sealed record AppSource
 
     public DateTimeOffset? InstalledOn { get; init; }
 
+    /// <summary>The command the app registered for removing itself, as Windows Settings would run it.</summary>
+    public string? UninstallCommand { get; init; }
+
     /// <summary>For a Store package: the apps in it that can be opened, as <c>family!AppId</c>.</summary>
     public IReadOnlyList<string> AppIds { get; init; } = [];
 

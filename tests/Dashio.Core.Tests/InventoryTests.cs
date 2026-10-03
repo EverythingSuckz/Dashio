@@ -1,3 +1,6 @@
+using Dashio.Core.Changes;
+using Dashio.Core.Journal;
+using Dashio.Core.Uninstall;
 using Dashio.Core.Attribution;
 using Dashio.Core.Inventory;
 using Dashio.Core.Models;
@@ -69,6 +72,86 @@ public class InventoryBuilderTests
         var app = Assert.Single(Build([Package("Fabrikam.Notes_abc", "Fabrikam Notes")]));
         Assert.Contains(app.Folders, f => f is { Role: FolderRole.Data, Path: PackageData + @"\Fabrikam.Notes_abc" });
         Assert.True(app.IsLaunchable);
+    }
+
+    [Fact]
+    public void Entries_with_the_same_name_and_maker_are_one_app_even_without_a_folder()
+    {
+        // An SDK registers one entry for every version it has installed.
+        var app = Assert.Single(Build(
+        [
+            Installed("Contoso Development Kit 10.0.19041", "Contoso", null, bytes: 1_000),
+            Installed("Contoso Development Kit 10.0.26100", "Contoso", null, bytes: 2_000),
+        ]));
+
+        Assert.Equal("Contoso Development Kit", app.Owner.Name);
+        Assert.Equal(2, app.Sources.Count);
+        Assert.Equal(3_000, app.ReportedBytes);
+    }
+
+    [Fact]
+    public void Entries_with_the_same_name_from_different_makers_stay_apart()
+    {
+        var apps = Build(
+        [
+            Installed("Notes", "Contoso", null) with { Id = "app:hklm64:ContosoNotes" },
+            Installed("Notes", "Fabrikam", null) with { Id = "app:hklm64:FabrikamNotes" },
+        ]);
+
+        Assert.Equal(2, apps.Count);
+    }
+
+    [Theory]
+    [InlineData("Contoso Visual Runtime 2015 Redistributable (x64) - 14.0", true)]
+    [InlineData("Contoso Desktop Runtime - 8.0.1 (x64)", true)]
+    [InlineData("Contoso Software Development Kit - 10.0.26100", true)]
+    [InlineData("Contoso SDK AddOn", true)]
+    [InlineData("Contoso Audio Driver", true)]
+    [InlineData("Contoso Graphics Software & Drivers", true)]
+    // A game opened from its launcher, a command-line tool: nothing to open, but chosen by a person.
+    [InlineData("Fabrikam Quest", false)]
+    [InlineData("fabrikam-cli", false)]
+    [InlineData("Screwdriver Simulator", false)]
+    public void An_entry_with_nothing_to_open_is_a_component_only_when_its_name_says_so(string name, bool component)
+    {
+        var app = Assert.Single(Build([Installed(name, "Contoso", null)]));
+
+        Assert.False(app.IsLaunchable);
+        Assert.Equal(component, app.IsComponent);
+    }
+
+    [Fact]
+    public void Something_to_open_is_never_a_component_whatever_it_is_called()
+    {
+        var folder = $@"{ProgramFiles}\Contoso Driver Studio";
+        var app = Assert.Single(Build(
+            [Installed("Contoso Driver Studio", "Contoso", folder)],
+            shortcuts: [new Shortcut("Contoso Driver Studio", @"C:\Menu\Studio.lnk", $@"{folder}\studio.exe")]));
+
+        Assert.False(app.IsComponent);
+    }
+
+    [Fact]
+    public void A_Store_package_with_nothing_to_open_is_a_component()
+    {
+        var codec = Package("Fabrikam.VideoExtension_abc", "Fabrikam Video Extension") with { AppIds = [] };
+
+        Assert.True(Assert.Single(Build([codec])).IsComponent);
+        Assert.False(Assert.Single(Build([Package("Fabrikam.Notes_abc", "Fabrikam Notes")])).IsComponent);
+    }
+
+    [Fact]
+    public void An_app_is_not_a_component_because_one_of_its_entries_is()
+    {
+        // A product and its runtime in one folder are one app, and the product is no component.
+        var folder = $@"{ProgramFiles}\Contoso";
+        var app = Assert.Single(Build(
+        [
+            Installed("Contoso Quest", "Contoso", folder),
+            Installed("Contoso Quest Runtime", "Contoso", folder),
+        ]));
+
+        Assert.False(app.IsComponent);
     }
 
     [Fact]
@@ -445,6 +528,141 @@ public class LiveInventoryReport(LiveSnapshotFixture live, ITestOutputHelper out
             output.WriteLine($"{bytes >> 20,7} MB  {app.Owner.Name}  [{(app.IsLaunchable ? "opens" : "no shortcut")}]");
             foreach (var folder in app.Folders)
                 output.WriteLine($"             {folder.Role,-7} {folder.Path.Replace(user, "~")}");
+        }
+    }
+
+    /// <summary>Every row the Apps page would show, with what is known about each.</summary>
+    [Fact]
+    public void Apps_list()
+    {
+        var groups = new AttributionEngine().Group(live.Snapshot.Items, live.Snapshot.Sources);
+        var attributor = new ProcessAttributor(groups, live.Snapshot.Sources);
+        var installed = InventoryBuilder.Build(
+            live.Snapshot.Sources, attributor, StartMenuCollector.Collect(), DataFolderCollector.TopFolders(),
+            DataFolderCollector.Subfolders, Directory.Exists, DataFolderCollector.PackageDataRoot)
+            .ToDictionary(a => a.Id, StringComparer.OrdinalIgnoreCase);
+
+        var evidence = new Evidence.FileEvidenceReader();
+        var sampler = new ProcessSampler();
+        var services = ServiceProcessMap.Read();
+        var running = sampler.Sample().Processes
+            .Select(p => attributor.Assign(
+                new RunningProcess(p.Pid, p.Name, sampler.ImagePath(p.Pid), services.GetValueOrDefault(p.Pid, [])), evidence.Read))
+            .Where(o => !o.IsWindows)
+            .GroupBy(o => o.GroupId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var rows = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in groups.Where(g => !g.IsWindows))
+            rows[group.Id] = group.Name;
+        foreach (var app in installed.Values)
+            rows.TryAdd(app.Id, app.Owner.Name);
+        foreach (var owner in running.Values)
+            rows.TryAdd(owner.GroupId, owner.Name);
+
+        var byId = groups.ToDictionary(g => g.Id, StringComparer.OrdinalIgnoreCase);
+        var hidden = 0;
+        foreach (var (id, name) in rows.OrderBy(r => r.Value, StringComparer.OrdinalIgnoreCase))
+        {
+            var app = installed.GetValueOrDefault(id);
+            var items = byId.GetValueOrDefault(id)?.Items.Count ?? 0;
+            var component = items == 0 && (app is null || app.IsComponent);
+            if (component)
+                hidden++;
+            var marks = string.Join(" ",
+                component ? "(left out)" : "LISTED",
+                app is null ? "-" : app.IsLaunchable ? "OPENS" : "noshortcut",
+                items > 0 ? $"items={items}" : "-",
+                running.ContainsKey(id) ? "RUNNING" : "-");
+            output.WriteLine($"{name,-58} {marks,-44} {id}");
+            foreach (var source in app?.Sources ?? [])
+                output.WriteLine($"      {source.Kind,-13} {source.Name}  |  {source.Publisher}  |  {(source.UninstallCommand is null ? "no uninstaller" : "uninstaller")}");
+        }
+        output.WriteLine($"{rows.Count} rows, {rows.Count - hidden} listed, {hidden} left out");
+    }
+}
+
+public class UninstallerTests
+{
+    private static AppSource App(string? command, bool system = false) => new()
+    {
+        Kind = AppSourceKind.InstalledApp,
+        Id = "app:hklm64:Fabrikam",
+        Name = "Fabrikam Editor",
+        UninstallCommand = command,
+        IsSystem = system,
+    };
+
+    private static bool Exists(string path) =>
+        path is @"C:\Program Files\Fabrikam Editor\unins000.exe" or @"C:\Tools\remove.exe";
+
+    [Theory]
+    [InlineData(@"""C:\Program Files\Fabrikam Editor\unins000.exe"" /SILENT", @"C:\Program Files\Fabrikam Editor\unins000.exe", "/SILENT")]
+    [InlineData(@"C:\Program Files\Fabrikam Editor\unins000.exe /S", @"C:\Program Files\Fabrikam Editor\unins000.exe", "/S")]
+    [InlineData(@"C:\Program Files\Fabrikam Editor\unins000.exe", @"C:\Program Files\Fabrikam Editor\unins000.exe", "")]
+    [InlineData(@"C:\Tools\remove.exe --app ""Fabrikam Editor""", @"C:\Tools\remove.exe", @"--app ""Fabrikam Editor""")]
+    [InlineData("msiexec.exe /x{0A1B2C3D-0000-1111-2222-333344445555}", "msiexec.exe", "/x{0A1B2C3D-0000-1111-2222-333344445555}")]
+    [InlineData("MsiExec.exe /I{0A1B2C3D-0000-1111-2222-333344445555}", "MsiExec.exe", "/I{0A1B2C3D-0000-1111-2222-333344445555}")]
+    public void A_registered_command_is_split_into_program_and_arguments(string command, string program, string arguments)
+    {
+        var split = Uninstaller.Split(command, Exists);
+
+        Assert.Equal((program, arguments), split);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("  ")]
+    [InlineData(@"C:\Gone\uninstall.exe /S")]
+    [InlineData(@"""C:\Unclosed\uninstall.exe /S")]
+    public void A_command_that_names_no_program_gives_no_plan(string? command)
+    {
+        Assert.Null(Uninstaller.PlanFor("Fabrikam Editor", App(command), Exists));
+    }
+
+    [Fact]
+    public void Parts_of_Windows_and_drivers_are_never_offered()
+    {
+        Assert.Null(Uninstaller.PlanFor("Windows", App(@"C:\Tools\remove.exe", system: true), Exists));
+        var driver = App(@"C:\Tools\remove.exe") with { Kind = AppSourceKind.DriverPackage };
+        Assert.Null(Uninstaller.PlanFor("Driver", driver, Exists));
+    }
+
+    [Fact]
+    public void A_Store_app_is_removed_as_a_package()
+    {
+        var package = new AppSource
+        {
+            Kind = AppSourceKind.StorePackage, Id = "pkg:Fabrikam.Notes_abc", Name = "Fabrikam Notes",
+            PackageFamilyName = "Fabrikam.Notes_abc",
+        };
+
+        var plan = Uninstaller.PlanFor("Fabrikam Notes", package, Exists);
+
+        Assert.NotNull(plan);
+        Assert.True(plan!.IsPackage);
+        Assert.Null(plan.Program);
+    }
+
+    [Fact]
+    public void An_uninstall_is_recorded_and_cannot_be_undone()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"dashio-journal-{Guid.NewGuid():N}.jsonl");
+        try
+        {
+            var journal = new ChangeJournal(path);
+            var plan = Uninstaller.PlanFor("Fabrikam Editor", App(@"C:\Tools\remove.exe"), Exists)!;
+
+            Uninstaller.Record(journal, plan.AppName, plan.Source, JournalResult.Applied, null);
+
+            var entry = Assert.Single(journal.Load().Entries);
+            Assert.Equal(ChangeAction.Uninstall, entry.Action);
+            Assert.Equal("Fabrikam Editor", entry.ItemName);
+            Assert.False(UndoPlanner.CanUndo(entry, [entry]));
+        }
+        finally
+        {
+            File.Delete(path);
         }
     }
 }

@@ -4,7 +4,6 @@ using Dashio.Core.Processes;
 using Dashio.App.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
 
 namespace Dashio.App.Services;
 
@@ -32,6 +31,8 @@ public static class RunningActions
             .FirstOrDefault(p => p is not null);
     }
 
+    private const string EndFooter = "Ending cannot be undone, but the app can be opened again.";
+
     public static async Task EndAppAsync(FrameworkElement anchor, string groupId)
     {
         var usage = AppServices.Monitor.UsageOf(groupId);
@@ -42,19 +43,21 @@ public static class RunningActions
         var services = RunningServices(groupId, null);
         var name = usage.Owner.Name;
 
-        var lines = new List<string>
+        var points = new List<ConfirmDialog.Point>
         {
-            $"{UsageText.Processes(processes.Count)} will be closed. Anything unsaved in {name} is lost.",
-            "Dashio first asks its windows to close, then ends whatever is still running a few seconds later.",
+            new("\uE711", $"{UsageText.Processes(processes.Count)} will be closed",
+                "Dashio asks the app's windows to close first, then ends whatever is still running a few seconds later."),
+            new("\uE7BA", "Unsaved work is lost", $"Anything not saved in {name} goes with it.", IsWarning: true),
         };
         if (services.Count > 0)
         {
-            lines.Add(
-                $"{ItemText.Plural(services.Count, "running service")} will be stopped first, which needs administrator permission. " +
-                "They start again as before unless you turn them off.");
+            points.Add(new ConfirmDialog.Point(
+                "\uEA18", $"{ItemText.Plural(services.Count, "running service")} will be stopped first",
+                "That needs administrator permission. They start again as before unless you turn them off."));
         }
 
-        if (await ConfirmAsync(anchor, $"End {name}?", lines))
+        var summary = $"{UsageText.Processes(usage.Processes.Count)} using {UsageText.Memory(usage.MemoryBytes)}";
+        if (await ConfirmDialog.ShowAsync(anchor, $"End {name}?", summary, usage.Owner.IconPath, points, "End", "\uE71A", EndFooter))
             await ChangeRunner.EndAsync(new PlannedEnd(name, name, Requests(processes), services));
     }
 
@@ -63,16 +66,23 @@ public static class RunningActions
         if (ChangeRunner.IsBusy || !CanEnd(process))
             return;
 
-        var appName = AppServices.Monitor.UsageOf(groupId)?.Owner.Name ?? process.Name;
+        var owner = AppServices.Monitor.UsageOf(groupId)?.Owner;
+        var appName = owner?.Name ?? process.Name;
         var services = RunningServices(groupId, process.Services);
-        var lines = new List<string> { $"Process {process.Pid} will be closed. Anything unsaved in it is lost." };
+        var points = new List<ConfirmDialog.Point>
+        {
+            new("\uE711", "This one process will be closed", $"The rest of {appName} keeps running."),
+            new("\uE7BA", "Unsaved work is lost", "Anything not saved in this process goes with it.", IsWarning: true),
+        };
         if (services.Count > 0)
         {
-            lines.Add(
-                $"It runs {ItemText.Plural(services.Count, "service")}, which will be stopped first. That needs administrator permission.");
+            points.Add(new ConfirmDialog.Point(
+                "\uEA18", $"It runs {ItemText.Plural(services.Count, "service")}, stopped first",
+                "That needs administrator permission."));
         }
 
-        if (await ConfirmAsync(anchor, $"End {process.Name}?", lines))
+        var summary = $"Process {process.Pid} of {appName}, using {UsageText.Memory(process.MemoryBytes)}";
+        if (await ConfirmDialog.ShowAsync(anchor, $"End {process.Name}?", summary, process.Path ?? owner?.IconPath, points, "End", "\uE71A", EndFooter))
             await ChangeRunner.EndAsync(new PlannedEnd(appName, process.Name, Requests([process]), services));
     }
 
@@ -86,31 +96,4 @@ public static class RunningActions
             .Where(i => i.Kind == AutostartKind.Service && i.IsRunning == true && !i.IsProtected)
             .Where(i => names is null || names.Contains(i.Name, StringComparer.OrdinalIgnoreCase))
             .ToList() ?? [];
-
-    private static async Task<bool> ConfirmAsync(FrameworkElement anchor, string title, List<string> lines)
-    {
-        var content = new StackPanel { Spacing = 12, MaxWidth = 440 };
-        foreach (var line in lines)
-            content.Children.Add(new TextBlock { Text = line, TextWrapping = TextWrapping.Wrap });
-        content.Children.Add(new TextBlock
-        {
-            Text = "This cannot be undone, but the app can be opened again.",
-            TextWrapping = TextWrapping.Wrap,
-            Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
-        });
-
-        var dialog = new ContentDialog
-        {
-            XamlRoot = anchor.XamlRoot,
-            RequestedTheme = (anchor.XamlRoot.Content as FrameworkElement)?.RequestedTheme ?? ElementTheme.Default,
-            Title = title,
-            Content = content,
-            PrimaryButtonText = "End",
-            CloseButtonText = "Cancel",
-            // Cancel is the safe answer, so Enter picks it.
-            DefaultButton = ContentDialogButton.Close,
-        };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
-    }
 }

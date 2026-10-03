@@ -208,6 +208,28 @@ public class ProcessAttributorTests
         Assert.Equal("Tool", owner.Name);
     }
 
+    [Theory]
+    [InlineData("stable-x86_64-pc-windows-msvc")]
+    [InlineData("0.22.0-x86_64-pc-windows-msvc")]
+    [InlineData("windows-x86_64")]
+    public void A_folder_named_after_a_version_or_build_target_does_not_name_the_program(string folder)
+    {
+        var (items, sources) = Machine();
+        var owner = Attributor(items, sources).Assign(
+            Running($@"D:\Portable\{folder}\analyzer.exe"),
+            p => new FileEvidence { Path = p, Exists = true, Product = "Tailspin Analyzer" });
+        Assert.StartsWith("dir:", owner.GroupId);
+        Assert.Equal("Tailspin Analyzer", owner.Name);
+    }
+
+    [Fact]
+    public void A_build_target_folder_with_nothing_known_about_the_file_is_named_by_the_file()
+    {
+        var (items, sources) = Machine();
+        var owner = Attributor(items, sources).Assign(Running(@"D:\Portable\windows-x86_64\analyzer.exe"), _ => null);
+        Assert.Equal("analyzer", owner.Name);
+    }
+
     [Fact]
     public void A_folder_named_exactly_like_one_app_joins_that_app()
     {

@@ -55,6 +55,7 @@ public sealed class InstalledAppCollector
                         // Stored in kilobytes.
                         EstimatedBytes = key.GetValue("EstimatedSize") is int kilobytes and > 0 ? kilobytes * 1024L : null,
                         InstalledOn = ParseInstallDate(key.GetValue("InstallDate") as string),
+                        UninstallCommand = UninstallCommandOf(key, subName),
                     });
                 }
             }
@@ -63,6 +64,16 @@ public sealed class InstalledAppCollector
             }
         }
         return sources;
+    }
+
+    private static string? UninstallCommandOf(RegistryKey key, string subName)
+    {
+        if (key.GetValue("NoRemove") is 1)
+            return null;
+        // A Windows Installer product is removed by its product code, which is the key's name.
+        if (key.GetValue("WindowsInstaller") is 1 && subName.StartsWith('{'))
+            return $"msiexec.exe /x{subName}";
+        return key.GetValue("UninstallString") is string command && !string.IsNullOrWhiteSpace(command) ? command.Trim() : null;
     }
 
     /// <summary>Installers write the date as "20250314".</summary>

@@ -22,6 +22,7 @@ public sealed unsafe class ProcessSampler
     private const int OffsetNameLength = 56;
     private const int OffsetNameBuffer = 64;
     private const int OffsetProcessId = 80;
+    private const int OffsetParentProcessId = 88;
 
     private readonly object _gate = new();
     private byte[] _buffer = new byte[1 << 20];
@@ -73,7 +74,8 @@ public sealed unsafe class ProcessSampler
                             name,
                             *(long*)(entry + OffsetPrivateWorkingSet),
                             *(long*)(entry + OffsetUserTime) + *(long*)(entry + OffsetKernelTime),
-                            *(long*)(entry + OffsetCreateTime)));
+                            *(long*)(entry + OffsetCreateTime),
+                            (int)*(long*)(entry + OffsetParentProcessId)));
                     }
 
                     var next = *(uint*)(entry + OffsetNext);

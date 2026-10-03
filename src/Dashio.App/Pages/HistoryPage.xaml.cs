@@ -72,6 +72,7 @@ public sealed partial class HistoryPage : Page
                 CloseButtonText = "Cancel",
                 DefaultButton = ContentDialogButton.Close,
             };
+            ConfirmDialog.WithIcons(dialog, "\uE7A7");
             if (await dialog.ShowAsync() != ContentDialogResult.Primary)
                 return;
         }

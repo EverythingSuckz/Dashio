@@ -157,6 +157,7 @@ public class NameTokensTests
     [InlineData("Zen Browser (x64 en-US)", "Zen Browser")]
     [InlineData("Intel® Driver && Support Assistant", "Intel Driver & Support Assistant")]
     [InlineData("7-Zip 24.08 (x64)", "7-Zip")]
+    [InlineData("Fabrikam Visual Runtime 2012 Redistributable (x64) - 11.0.61030", "Fabrikam Visual Runtime 2012 Redistributable")]
     public void Cleans_app_names(string input, string expected) =>
         Assert.Equal(expected, NameTokens.CleanAppName(input));
 

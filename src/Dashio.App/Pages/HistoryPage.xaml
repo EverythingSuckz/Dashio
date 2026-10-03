@@ -34,9 +34,13 @@
                     Grid.Column="1"
                     AutomationProperties.Name="{x:Bind UndoAllName}"
                     Click="UndoBatch_Click"
-                    Content="Undo all"
                     Tag="{x:Bind}"
-                    Visibility="{x:Bind local:Ui.Visible(CanUndoAll)}" />
+                    Visibility="{x:Bind local:Ui.Visible(CanUndoAll)}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontSize="14" Glyph="&#xE7A7;" />
+                        <TextBlock Text="Undo all" />
+                    </StackPanel>
+                </HyperlinkButton>
             </Grid>
         </DataTemplate>
 

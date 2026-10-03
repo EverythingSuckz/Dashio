@@ -1,0 +1,765 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Dashio.App.Pages.StoragePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:app="using:Dashio.App.Controls"
+    xmlns:local="using:Dashio.App"
+    xmlns:vm="using:Dashio.App.ViewModels"
+    NavigationCacheMode="Required">
+
+    <Page.Resources>
+        <!-- Bars on this page show how full something is, so they are thicker than a progress line. -->
+        <x:Double x:Key="ProgressBarMinHeight">8</x:Double>
+        <x:Double x:Key="ProgressBarTrackHeight">8</x:Double>
+        <CornerRadius x:Key="ProgressBarCornerRadius">4</CornerRadius>
+        <CornerRadius x:Key="ProgressBarTrackCornerRadius">4</CornerRadius>
+
+        <!-- A bar on every line of a list: the part not filled stays in the background. -->
+        <Style x:Key="ListBarStyle" TargetType="ProgressBar">
+            <Setter Property="MinHeight" Value="8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+
+        <!-- The right-click menu of a folder or file, in the list and on the map. -->
+        <MenuFlyout x:Key="FolderMenu">
+            <MenuFlyoutItem
+                Click="FolderOpen_Click"
+                Tag="open"
+                Text="Look inside">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE8A7;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+            <MenuFlyoutItem
+                Click="FolderReveal_Click"
+                Tag="file"
+                Text="Show in File Explorer">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE838;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+            <MenuFlyoutItem
+                Click="FolderCopyPath_Click"
+                Tag="file"
+                Text="Copy path">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE8C8;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+            <MenuFlyoutSeparator />
+            <MenuFlyoutItem
+                Click="FolderDelete_Click"
+                Tag="delete"
+                Text="Delete">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE74D;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+        </MenuFlyout>
+    </Page.Resources>
+
+    <Grid x:Name="Shell" HorizontalAlignment="Center">
+        <!-- The map sits beside the list on wide pages and above it otherwise; the page sets that. -->
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="MapColumn" Width="0" />
+            <ColumnDefinition x:Name="ListColumn" Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid
+            Grid.ColumnSpan="2"
+            Margin="{StaticResource PageHeaderMargin}"
+            ColumnSpacing="24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="4">
+                <TextBlock
+                    AutomationProperties.HeadingLevel="Level1"
+                    Style="{StaticResource TitleTextBlockStyle}"
+                    Text="Storage" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource BodyTextBlockStyle}"
+                    Text="What is filling your drives, folder by folder."
+                    TextWrapping="Wrap" />
+            </StackPanel>
+            <!-- Sizes per app live on the Apps page. -->
+            <HyperlinkButton
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.AutomationId="StorageAppsBySize"
+                AutomationProperties.Name="See apps by size"
+                Click="AppsBySize_Click">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="Apps by size" />
+                    <FontIcon
+                        VerticalAlignment="Center"
+                        FontSize="10"
+                        Glyph="&#xE76C;" />
+                </StackPanel>
+            </HyperlinkButton>
+        </Grid>
+
+        <!-- One card per drive. The chosen one is the drive the folders below belong to. -->
+        <ItemsRepeater
+            x:Name="DriveList"
+            Grid.Row="1"
+            Grid.ColumnSpan="2"
+            Margin="36,16,36,0"
+            ItemsSource="{x:Bind ViewModel.Drives}">
+            <ItemsRepeater.Layout>
+                <UniformGridLayout
+                    ItemsStretch="Fill"
+                    MaximumRowsOrColumns="4"
+                    MinColumnSpacing="12"
+                    MinItemHeight="84"
+                    MinItemWidth="300"
+                    MinRowSpacing="12" />
+            </ItemsRepeater.Layout>
+            <ItemsRepeater.ItemTemplate>
+                <DataTemplate x:DataType="vm:DriveViewModel">
+                    <Button
+                        Padding="0"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        AutomationProperties.Name="{x:Bind AccessibleName, Mode=OneWay}"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        Click="Drive_Click"
+                        Tag="{x:Bind}">
+                        <Grid>
+                            <!-- The chosen drive wears an accent outline rather than a filled card, so its bar stays readable. -->
+                            <Border
+                                Margin="-1"
+                                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                BorderThickness="2"
+                                CornerRadius="{StaticResource ControlCornerRadius}"
+                                Visibility="{x:Bind local:Ui.Visible(IsSelected), Mode=OneWay}" />
+                            <Grid
+                                Margin="16,0,16,0"
+                                VerticalAlignment="Center"
+                                ColumnSpacing="12"
+                                RowSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <FontIcon
+                                    VerticalAlignment="Center"
+                                    FontSize="24"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Glyph="&#xEDA2;" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock
+                                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                                        Text="{x:Bind Title, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis"
+                                        TextWrapping="NoWrap" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind Detail, Mode=OneWay}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                    <TextBlock
+                                        HorizontalAlignment="Right"
+                                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                                        Text="{x:Bind FreeText, Mode=OneWay}" />
+                                    <!-- A warning is never colour alone: it has an icon and says what is wrong. -->
+                                    <StackPanel
+                                        HorizontalAlignment="Right"
+                                        Orientation="Horizontal"
+                                        Spacing="4"
+                                        Visibility="{x:Bind local:Ui.Visible(IsNearlyFull), Mode=OneWay}">
+                                        <FontIcon
+                                            FontSize="14"
+                                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                            Glyph="&#xE7BA;" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="Nearly full" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <ProgressBar
+                                    MinHeight="8"
+                                    CornerRadius="4"
+                                    Grid.Row="1"
+                                    Grid.ColumnSpan="3"
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    Maximum="100"
+                                    Value="{x:Bind UsedPercent, Mode=OneWay}" />
+                            </Grid>
+                        </Grid>
+                    </Button>
+                </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+        </ItemsRepeater>
+
+        <!-- Two ways to look at a drive that has been read. -->
+        <SelectorBar
+            x:Name="ViewBar"
+            Grid.Row="2"
+            Grid.ColumnSpan="2"
+            Margin="24,12,36,0"
+            AutomationProperties.Name="What to show"
+            SelectionChanged="ViewBar_SelectionChanged"
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.HasScan), Mode=OneWay}">
+            <SelectorBarItem
+                x:Name="ViewFolders"
+                AutomationProperties.AutomationId="StorageFolders"
+                IsSelected="True"
+                Text="Folders" />
+            <SelectorBarItem
+                x:Name="ViewFiles"
+                AutomationProperties.AutomationId="StorageLargestFiles"
+                Text="Largest files" />
+        </SelectorBar>
+
+        <!-- Back, forward and up, then the path, as in File Explorer. -->
+        <Grid
+            Grid.Row="3"
+            Grid.ColumnSpan="2"
+            Margin="28,8,36,8"
+            ColumnSpacing="4"
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.HasScan), Mode=OneWay}">
+            <Grid.Resources>
+                <!-- An arrow that leads nowhere is only dimmed; it gets no box of its own. -->
+                <StaticResource x:Key="ButtonBackgroundDisabled" ResourceKey="SubtleFillColorTransparentBrush" />
+                <StaticResource x:Key="ButtonBorderBrushDisabled" ResourceKey="SubtleFillColorTransparentBrush" />
+            </Grid.Resources>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Button
+                AutomationProperties.AutomationId="StorageBack"
+                Visibility="{x:Bind local:Ui.Visible(ViewModel.ShowFolders), Mode=OneWay}"
+                AutomationProperties.Name="Back"
+                Click="Back_Click"
+                IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}"
+                Style="{StaticResource TableActionButtonStyle}"
+                ToolTipService.ToolTip="Back to the folder you came from">
+                <FontIcon FontSize="16" Glyph="&#xE72B;" />
+            </Button>
+            <Button
+                Grid.Column="1"
+                AutomationProperties.AutomationId="StorageForward"
+                Visibility="{x:Bind local:Ui.Visible(ViewModel.ShowFolders), Mode=OneWay}"
+                AutomationProperties.Name="Forward"
+                Click="Forward_Click"
+                IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}"
+                Style="{StaticResource TableActionButtonStyle}"
+                ToolTipService.ToolTip="Forward">
+                <FontIcon FontSize="16" Glyph="&#xE72A;" />
+            </Button>
+            <Button
+                Grid.Column="2"
+                AutomationProperties.AutomationId="StorageUp"
+                Visibility="{x:Bind local:Ui.Visible(ViewModel.ShowFolders), Mode=OneWay}"
+                AutomationProperties.Name="Up one folder"
+                Click="Up_Click"
+                IsEnabled="{x:Bind ViewModel.CanGoUp, Mode=OneWay}"
+                Style="{StaticResource TableActionButtonStyle}"
+                ToolTipService.ToolTip="Up one folder">
+                <FontIcon FontSize="16" Glyph="&#xE74A;" />
+            </Button>
+            <BreadcrumbBar
+                x:Name="PathBar"
+                Grid.Column="3"
+                Margin="8,0,0,0"
+                VerticalAlignment="Center"
+                AutomationProperties.AutomationId="StoragePath"
+                Visibility="{x:Bind local:Ui.Visible(ViewModel.ShowFolders), Mode=OneWay}"
+                AutomationProperties.Name="Folder path"
+                ItemClicked="PathBar_ItemClicked"
+                ItemsSource="{x:Bind ViewModel.Trail}">
+                <BreadcrumbBar.Resources>
+                    <!-- As on the Windows Settings pages: where you are stands out, the way there is quieter. -->
+                    <ResourceDictionary>
+                        <ResourceDictionary.ThemeDictionaries>
+                            <ResourceDictionary x:Key="Default">
+                                <StaticResource x:Key="BreadcrumbBarNormalForegroundBrush" ResourceKey="TextFillColorSecondaryBrush" />
+                            </ResourceDictionary>
+                            <ResourceDictionary x:Key="Light">
+                                <StaticResource x:Key="BreadcrumbBarNormalForegroundBrush" ResourceKey="TextFillColorSecondaryBrush" />
+                            </ResourceDictionary>
+                            <ResourceDictionary x:Key="HighContrast">
+                                <StaticResource x:Key="BreadcrumbBarNormalForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
+                            </ResourceDictionary>
+                        </ResourceDictionary.ThemeDictionaries>
+                    </ResourceDictionary>
+                </BreadcrumbBar.Resources>
+                <BreadcrumbBar.ItemTemplate>
+                    <DataTemplate x:DataType="vm:Crumb">
+                        <TextBlock
+                            FontSize="18"
+                            FontWeight="SemiBold"
+                            Text="{x:Bind Label}" />
+                    </DataTemplate>
+                </BreadcrumbBar.ItemTemplate>
+            </BreadcrumbBar>
+
+            <!-- While the drive is being read: how far it has got. Afterwards: the offer to read it again. -->
+            <StackPanel
+                Grid.Column="4"
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="12"
+                Visibility="{x:Bind local:Ui.Visible(ViewModel.IsBusy), Mode=OneWay}">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="Reading" />
+                <ProgressBar
+                    MinHeight="8"
+                    CornerRadius="4"
+                    Width="180"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="StorageScanProgress"
+                    AutomationProperties.Name="How much of the drive has been scanned"
+                    Maximum="100"
+                    Value="{x:Bind ViewModel.ScanPercent, Mode=OneWay}" />
+                <TextBlock
+                    MinWidth="40"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind ViewModel.ScanPercentText, Mode=OneWay}"
+                    TextAlignment="Right" />
+            </StackPanel>
+            <Button
+                Grid.Column="4"
+                AutomationProperties.AutomationId="StorageRescan"
+                Click="ReadAgain_Click"
+                ToolTipService.ToolTip="Scan every folder of this drive again"
+                Visibility="{x:Bind local:Ui.Collapsed(ViewModel.IsBusy), Mode=OneWay}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontSize="14" Glyph="&#xE72C;" />
+                    <TextBlock Text="Scan again" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- The map: one tile per entry, sized by what it holds. Pressing a folder's tile goes into it. -->
+        <Border
+            x:Name="MapPanel"
+            Grid.Row="4"
+            Grid.ColumnSpan="2"
+            Height="168"
+            Margin="36,0,36,8"
+            Padding="6"
+            Style="{StaticResource PanelStyle}"
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.ShowFolders), Mode=OneWay}">
+            <ItemsRepeater
+                x:Name="Map"
+                AutomationProperties.Name="Map of this folder"
+                ItemsSource="{x:Bind ViewModel.Tiles}">
+                <ItemsRepeater.Layout>
+                    <app:TreemapLayout x:Name="MapLayout" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FolderEntryViewModel">
+                        <Button
+                            Padding="0"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            AutomationProperties.Name="{x:Bind AccessibleName, Mode=OneWay}"
+                            Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                            BorderThickness="0"
+                            Click="Tile_Click"
+                            ContextRequested="Tile_ContextRequested"
+                            Tag="{x:Bind}"
+                            ToolTipService.ToolTip="{x:Bind Tip, Mode=OneWay}">
+                            <Grid>
+                                <Border
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    CornerRadius="{StaticResource ControlCornerRadius}"
+                                    Opacity="{x:Bind Tint, Mode=OneWay}" />
+                                <StackPanel
+                                    Margin="10,8,10,8"
+                                    VerticalAlignment="Top"
+                                    Visibility="{x:Bind local:Ui.Visible(HasLabel), Mode=OneWay}">
+                                    <TextBlock
+                                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                                        Text="{x:Bind Name, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis"
+                                        TextWrapping="NoWrap" />
+                                    <TextBlock
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind SizeText, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis"
+                                        TextWrapping="NoWrap" />
+                                </StackPanel>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+        </Border>
+
+        <!-- Column headings of the folder list. -->
+        <Grid
+            x:Name="FolderHeader"
+            Grid.Row="5"
+            Grid.ColumnSpan="2"
+            Margin="36,0,36,0"
+            Padding="16,4,16,4"
+            ColumnSpacing="16"
+            Style="{StaticResource TableHeaderStyle}"
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.ShowFolders), Mode=OneWay}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="{x:Bind ViewModel.Columns.BarWidth, Mode=OneWay}" />
+                <ColumnDefinition Width="96" />
+                <ColumnDefinition Width="72" />
+                <ColumnDefinition Width="96" />
+                <ColumnDefinition Width="32" />
+            </Grid.ColumnDefinitions>
+            <Button
+                x:Name="FolderNameHeader"
+                AutomationProperties.AutomationId="StorageSortFolderName"
+                AutomationProperties.Name="Sort by name"
+                Click="FolderHeader_Click"
+                Content="Name"
+                Style="{StaticResource ColumnHeaderButtonStyle}"
+                Tag="Name" />
+            <Button
+                x:Name="FolderSizeHeader"
+                Grid.Column="2"
+                AutomationProperties.AutomationId="StorageSortFolderSize"
+                AutomationProperties.Name="Sort by size"
+                Click="FolderHeader_Click"
+                Content="Size"
+                Style="{StaticResource ColumnHeaderRightButtonStyle}"
+                Tag="Size" />
+            <TextBlock
+                Grid.Column="3"
+                VerticalAlignment="Center"
+                FontWeight="SemiBold"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="Share"
+                TextAlignment="Right" />
+            <Button
+                x:Name="FolderFilesHeader"
+                Grid.Column="4"
+                AutomationProperties.AutomationId="StorageSortFolderFiles"
+                AutomationProperties.Name="Sort by number of files"
+                Click="FolderHeader_Click"
+                Content="Files"
+                Style="{StaticResource ColumnHeaderRightButtonStyle}"
+                Tag="Files" />
+        </Grid>
+
+        <ListView
+            x:Name="FolderList"
+            Grid.Row="6"
+            Grid.ColumnSpan="2"
+            Padding="36,4,36,8"
+            AutomationProperties.AutomationId="StorageFolderList"
+            AutomationProperties.Name="Folders and files"
+            ContextRequested="FolderList_ContextRequested"
+            IsItemClickEnabled="True"
+            ItemClick="FolderRow_Click"
+            ItemsSource="{x:Bind ViewModel.FolderRows}"
+            SelectionMode="None"
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.ShowFolders), Mode=OneWay}">
+            <ListView.ItemContainerStyle>
+                <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                    <Setter Property="Padding" Value="16,0,16,0" />
+                    <Setter Property="MinHeight" Value="44" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="vm:FolderEntryViewModel">
+                    <Grid AutomationProperties.Name="{x:Bind AccessibleName, Mode=OneWay}" ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="20" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="{x:Bind Columns.BarWidth, Mode=OneWay}" />
+                            <ColumnDefinition Width="96" />
+                            <ColumnDefinition Width="72" />
+                            <ColumnDefinition Width="96" />
+                            <ColumnDefinition Width="32" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon
+                            VerticalAlignment="Center"
+                            FontSize="16"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Glyph="{x:Bind Glyph}" />
+                        <Grid
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            ColumnSpacing="12"
+                            ToolTipService.ToolTip="{x:Bind Tip, Mode=OneWay}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Text="{x:Bind Name, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis"
+                                TextWrapping="NoWrap" />
+                            <TextBlock
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind Note, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis"
+                                TextWrapping="NoWrap" />
+                        </Grid>
+                        <ProgressBar
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AccessibilityView="Raw"
+                            Maximum="100"
+                            Style="{StaticResource ListBarStyle}"
+                            Visibility="{x:Bind local:Ui.Visible(Columns.ShowBar), Mode=OneWay}"
+                            Value="{x:Bind Share, Mode=OneWay}" />
+                        <TextBlock
+                            Grid.Column="3"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind SizeText, Mode=OneWay}"
+                            TextAlignment="Right" />
+                        <TextBlock
+                            Grid.Column="4"
+                            VerticalAlignment="Center"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind PercentText, Mode=OneWay}"
+                            TextAlignment="Right" />
+                        <TextBlock
+                            Grid.Column="5"
+                            VerticalAlignment="Center"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind FilesText, Mode=OneWay}"
+                            TextAlignment="Right" />
+                        <Button
+                            Grid.Column="6"
+                            Margin="0,0,-8,0"
+                            AutomationProperties.Name="{x:Bind RevealName, Mode=OneWay}"
+                            Click="RevealFolder_Click"
+                            Style="{StaticResource TableActionButtonStyle}"
+                            Tag="{x:Bind}"
+                            ToolTipService.ToolTip="Show in File Explorer"
+                            Visibility="{x:Bind local:Ui.Visible(HasPath)}">
+                            <FontIcon FontSize="14" Glyph="&#xE838;" />
+                        </Button>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <!-- The largest files anywhere on the drive: usually the quickest way to find what to clear out. -->
+        <ListView
+            x:Name="FileList"
+            Grid.Row="4"
+            Grid.RowSpan="3"
+            Grid.ColumnSpan="2"
+            Padding="36,0,36,8"
+            AutomationProperties.AutomationId="StorageFileList"
+            AutomationProperties.Name="Largest files on this drive"
+            ContextRequested="FileList_ContextRequested"
+            ItemsSource="{x:Bind ViewModel.LargeFiles}"
+            SelectionMode="None"
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.ShowFiles), Mode=OneWay}">
+            <ListView.ItemContainerStyle>
+                <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                    <Setter Property="Padding" Value="16,0,16,0" />
+                    <Setter Property="MinHeight" Value="52" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="vm:LargeFileRow">
+                    <Grid AutomationProperties.Name="{x:Bind AccessibleName}" ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="20" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="200" />
+                            <ColumnDefinition Width="96" />
+                            <ColumnDefinition Width="32" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon
+                            VerticalAlignment="Center"
+                            FontSize="16"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Glyph="&#xE7C3;" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock
+                                Text="{x:Bind Name}"
+                                TextTrimming="CharacterEllipsis"
+                                TextWrapping="NoWrap" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind Folder}"
+                                TextTrimming="CharacterEllipsis"
+                                TextWrapping="NoWrap" />
+                        </StackPanel>
+                        <ProgressBar
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AccessibilityView="Raw"
+                            Maximum="100"
+                            Style="{StaticResource ListBarStyle}"
+                            Value="{x:Bind Share}" />
+                        <TextBlock
+                            Grid.Column="3"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind SizeText}"
+                            TextAlignment="Right" />
+                        <Button
+                            Grid.Column="4"
+                            Margin="0,0,-8,0"
+                            AutomationProperties.Name="{x:Bind RevealName}"
+                            Click="RevealFile_Click"
+                            Style="{StaticResource TableActionButtonStyle}"
+                            Tag="{x:Bind}"
+                            ToolTipService.ToolTip="Show in File Explorer">
+                            <FontIcon FontSize="14" Glyph="&#xE838;" />
+                        </Button>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+        <TextBlock
+            Grid.Row="6"
+            Grid.ColumnSpan="2"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Text="No file on this drive is larger than 1 MB."
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.HasNoLargeFiles), Mode=OneWay}" />
+
+        <!-- How the reading went, under the list. -->
+        <TextBlock
+            Grid.Row="7"
+            Grid.ColumnSpan="2"
+            Margin="52,4,52,12"
+            AutomationProperties.AutomationId="StorageScanStatus"
+            AutomationProperties.LiveSetting="Polite"
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Style="{StaticResource CaptionTextBlockStyle}"
+            Text="{x:Bind ViewModel.ScanStatus, Mode=OneWay}"
+            TextTrimming="CharacterEllipsis"
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.HasScan), Mode=OneWay}" />
+
+        <!-- Before the drive has been read: the offer to read it. -->
+        <StackPanel
+            Grid.Row="2"
+            Grid.RowSpan="6"
+            Grid.ColumnSpan="2"
+            MaxWidth="440"
+            Margin="36,0,36,48"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="12"
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.CanStartScan), Mode=OneWay}">
+            <FontIcon
+                FontSize="40"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Glyph="&#xE9F9;" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                Style="{StaticResource SubtitleTextBlockStyle}"
+                Text="{x:Bind ViewModel.StartTitle, Mode=OneWay}"
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="A map of the largest folders and files. Scanning changes nothing."
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+            <StackPanel
+                Margin="0,8,0,0"
+                HorizontalAlignment="Center"
+                Spacing="8"
+                Visibility="{x:Bind local:Ui.Collapsed(ViewModel.IsAdminReading), Mode=OneWay}">
+                <Button
+                    HorizontalAlignment="Center"
+                    AutomationProperties.AutomationId="StorageStartScan"
+                    Click="StartScan_Click"
+                    Style="{StaticResource AccentButtonStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon FontSize="14" Glyph="&#xE721;" />
+                        <TextBlock Text="Scan this drive" />
+                    </StackPanel>
+                </Button>
+                <CheckBox
+                    x:Name="AdminCheck"
+                    MinWidth="0"
+                    HorizontalAlignment="Center"
+                    AutomationProperties.AutomationId="StorageAdminCheck"
+                    Click="AdminCheck_Click"
+                    Content="Scan as administrator"
+                    ToolTipService.ToolTip="Windows asks for permission first" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="Much faster, and includes the folders Windows protects."
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+            <!-- While the helper reads behind the administrator prompt. -->
+            <StackPanel
+                Margin="0,8,0,0"
+                HorizontalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="12"
+                Visibility="{x:Bind local:Ui.Visible(ViewModel.IsAdminReading), Mode=OneWay}">
+                <ProgressBar
+                    MinHeight="8"
+                    Width="220"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="How much of the drive has been scanned"
+                    CornerRadius="4"
+                    Maximum="100"
+                    Value="{x:Bind ViewModel.ScanPercent, Mode=OneWay}" />
+                <TextBlock
+                    MinWidth="40"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind ViewModel.ScanPercentText, Mode=OneWay}" />
+            </StackPanel>
+        </StackPanel>
+
+        <TextBlock
+            Grid.Row="6"
+            Grid.Column="1"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Text="This folder is empty."
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.IsFolderEmpty), Mode=OneWay}" />
+    </Grid>
+</Page>

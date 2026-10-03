@@ -149,15 +149,45 @@ public sealed partial class OverviewPage : Page
 
     private void HiddenTile_Click(object sender, RoutedEventArgs e) => OpenApps(AppFilter.NotInTaskManager);
 
-    private void RunningTile_Click(object sender, RoutedEventArgs e) => OpenApps(AppFilter.All);
+    private void RunningTile_Click(object sender, RoutedEventArgs e) =>
+        Frame.Navigate(typeof(StartupPage), new StartupTarget(Dashio.Core.Models.AutostartKind.Service), FromRight);
 
     private void OpenApps(AppFilter filter) => Frame.Navigate(typeof(AppsPage), filter, FromRight);
 
-    private void OpenInstalled_Click(object sender, RoutedEventArgs e) =>
-        Frame.Navigate(typeof(InstalledPage), InstalledFilter.All, FromRight);
+    private void OpenProcesses_Click(object sender, RoutedEventArgs e) =>
+        Frame.Navigate(typeof(ProcessesPage), null, FromRight);
 
-    private void OpenUnused_Click(object sender, RoutedEventArgs e) =>
-        Frame.Navigate(typeof(InstalledPage), InstalledFilter.NotOpenedLately, FromRight);
+    private void OpenStorage_Click(object sender, RoutedEventArgs e) =>
+        Frame.Navigate(typeof(AppsPage), AppColumn.Size, FromRight);
+
+    private void KindRow_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: KindBreakdown kind })
+            Frame.Navigate(typeof(StartupPage), new StartupTarget(kind.Kind), FromRight);
+    }
+
+    private void NewItems_Click(object sender, RoutedEventArgs e) =>
+        Frame.Navigate(typeof(StartupPage), new StartupTarget(NewOnly: true), FromRight);
+
+    private void OpenStartup_Click(object sender, RoutedEventArgs e) =>
+        Frame.Navigate(typeof(StartupPage), new StartupTarget(), FromRight);
+
+    private void OpenUnused_Click(object sender, RoutedEventArgs e) => OpenApps(AppFilter.NotOpenedLately);
+
+    private async void GrantAccess_Click(object sender, RoutedEventArgs e)
+    {
+        GrantAccessButton.IsEnabled = false;
+        try
+        {
+            var (message, isError) = await AppServices.Inventory.RunAdminCheckAsync();
+            AppServices.Shell.Notify(new Notice(
+                isError ? InfoBarSeverity.Error : InfoBarSeverity.Informational, "Last opened", message));
+        }
+        finally
+        {
+            GrantAccessButton.IsEnabled = true;
+        }
+    }
 
     private void OpenHistory_Click(object sender, RoutedEventArgs e) =>
         Frame.Navigate(typeof(HistoryPage), null, new EntranceNavigationTransitionInfo());

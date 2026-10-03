@@ -29,6 +29,9 @@ public sealed record JournalEntry
     public required JournalResult Result { get; init; }
     public string? Error { get; init; }
 
+    /// <summary>Something worth knowing about a change that worked, such as where a deleted file went.</summary>
+    public string? Note { get; init; }
+
     /// <summary>Set when this entry undoes an earlier one.</summary>
     public Guid? UndoOf { get; init; }
 }
@@ -136,11 +139,11 @@ public static class UndoPlanner
 {
     /// <summary>
     /// An entry can be undone once: it must have been applied and not already undone.
-    /// An ended program cannot be brought back.
+    /// An ended program cannot be brought back, and neither can an uninstalled app or a deleted file.
     /// </summary>
     public static bool CanUndo(JournalEntry entry, IReadOnlyList<JournalEntry> journal) =>
         entry.Result == JournalResult.Applied
-        && entry.Action != ChangeAction.End
+        && entry.Action is not (ChangeAction.End or ChangeAction.Uninstall or ChangeAction.Delete)
         && !journal.Any(e => e.UndoOf == entry.Id && e.Result == JournalResult.Applied);
 
     /// <summary>Something other than Dashio changed the item after this entry was written.</summary>

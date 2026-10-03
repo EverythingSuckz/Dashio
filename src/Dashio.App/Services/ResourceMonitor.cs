@@ -100,6 +100,9 @@ public sealed class ResourceMonitor
     /// <summary>An app that is running, or was, but has set nothing to start by itself.</summary>
     public AppGroup? FindGroup(string groupId) => _processOnly.GetValueOrDefault(groupId);
 
+    /// <summary>An app that has been uninstalled is not remembered for having run.</summary>
+    public void Forget(string groupId) => _processOnly.Remove(groupId);
+
     private async Task MeasureLoopAsync()
     {
         while (true)

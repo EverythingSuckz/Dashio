@@ -6,7 +6,8 @@ namespace Dashio.Core.Processes;
 /// <param name="PrivateBytes">Private working set: the figure Task Manager shows as Memory.</param>
 /// <param name="CpuTicks">Processor time used since the process started, in 100 ns units, summed over all cores.</param>
 /// <param name="StartTicks">When it started. Together with the id this tells a process from a later one that reuses the id.</param>
-public sealed record ProcessSample(int Pid, string Name, long PrivateBytes, long CpuTicks, long StartTicks);
+/// <param name="ParentPid">The process that started it. That one may be gone, and its id may have been reused since.</param>
+public sealed record ProcessSample(int Pid, string Name, long PrivateBytes, long CpuTicks, long StartTicks, int ParentPid = 0);
 
 /// <summary>Every process, plus the machine's memory and processor counters, at one moment.</summary>
 /// <param name="KernelTicks">Includes idle time, as Windows reports it.</param>

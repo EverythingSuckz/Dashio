@@ -8,8 +8,32 @@ Manager's Startup tab only shows some of them. An app can install four services 
 scheduled task and appear nowhere in that tab. Dashio puts all of an app's pieces on one
 page.
 
-It only switches things on and off. It never deletes anything, every change is recorded, and
-any change can be undone.
+Switching things off and on is all Dashio does to them: it never deletes an item, every change
+is recorded, and any change can be undone. It can also end a running program, start an app's
+own uninstaller and delete a file or folder you pick on the Storage page. Those are recorded
+too, but cannot be undone from Dashio.
+
+![Overview](docs/screenshots/overview.png)
+
+| | |
+|---|---|
+| ![Processes](docs/screenshots/processes.png) | ![Apps](docs/screenshots/apps.png) |
+| ![Storage](docs/screenshots/storage.png) | ![Startup](docs/screenshots/startup.png) |
+
+## The pages
+
+| Page | What it answers |
+|---|---|
+| Overview | How is this PC doing? Memory, processor and disk, and the apps using the most. |
+| Processes | What is running right now? Every program, grouped by app, with End. |
+| Apps | What is on this PC? One row per app: running, what it starts, size, last opened. |
+| Storage | What is taking space? A map of each drive's folders that you can walk into. |
+| Startup | What starts by itself? Services, scheduled tasks and startup entries, with a switch each. |
+| History | What did I change? Every change, with undo. |
+
+What is installed and what starts by itself is read when Dashio opens and again when you come
+back to it after a few minutes; F5, or Settings, reads it at once. The search box in the title bar (Ctrl+E) finds an app, a running program, a startup item, a
+page or a setting by name and goes there. Each list also has a filter box of its own (Ctrl+F).
 
 ## What it reads
 
@@ -25,23 +49,36 @@ Parts of Windows itself are recognised by their signature, hidden by default and
 
 ## What is running
 
-The Overview page shows memory and processor use for the whole PC and for each app, updated
+Overview and Processes show memory and processor use for the whole PC and for each app, updated
 every two seconds (the interval can be changed or paused in Settings). An app's figure is the
-sum of everything it is running: its windows, its background programs and its services. Open
-an app to see each of its processes.
+sum of everything it is running: its windows, its background programs and its services. Press
+an app on the Processes page to see each of its processes.
+
+The cells behind the figures are tinted more strongly the more an app uses, as in Task Manager.
+The Processes list is put in order when you open the page or press a column heading. Between
+those moments the figures change in place and rows stay where they are, so a row never moves
+from under the pointer.
 
 Memory is the private working set, the same figure Task Manager's Memory column shows.
 Processor use is the share of the whole processor. Dashio reads these for every process
 without administrator rights, and measures nothing while its window is minimised.
 
 A running program is tied to an app by the services it hosts, the folder it runs from or its
-signature, never by a shared word in its name. Apps that run but start nothing by themselves
-appear on Overview only; the Apps page stays a list of what starts by itself.
+signature, never by a shared word in its name.
 
 ## What is installed
 
-The Installed page lists every app Windows shows as installed, with how much room it takes and
-when it was last opened.
+The Apps page lists every app: the ones Windows shows as installed and the ones that start
+something by themselves. Press the Size heading for the largest first.
+
+Two kinds of entry are left out until you ask for them ("Show them" under the title, or the View
+menu): the parts other software needs, such as runtimes, redistributables, drivers and codecs,
+when they start nothing by themselves; and programs that are running without being installed,
+which the Processes page shows. A part is only recognised when it says what it is, by a word in its name
+(the list is `componentWords` in `attribution-overrides.json`) or by being a Store package with
+nothing to open, so a game opened from its launcher or a
+command-line tool stays in the list. Entries with the same name from the same maker, such as
+three versions of one SDK, are one row. The filter box finds a left-out entry by name.
 
 **Size** is the app's own folder plus the data it keeps elsewhere: a Store app's data folder,
 and folders in your app data that carry the app's name or hold its files. Data that cannot be
@@ -55,10 +92,51 @@ never called unused. Dashio uses what it can:
 
 - the apps it sees open while it is running, which it remembers;
 - Windows' own list of launched apps, when Windows is still keeping it (on some PCs it is not);
-- the list of programs Windows has run lately, which needs the administrator check in Settings.
+- the list of programs Windows has run lately, which needs administrator access ("Grant access").
 
 "Not opened lately" only appears when one of the last two can vouch for it, and it says how far
-back the records go. Dashio does not uninstall anything; the page links to Windows Settings.
+back the records go.
+
+**Uninstall**, on an app's page and in its right-click menu, starts the uninstaller the app
+registered with Windows, the same one Windows Settings starts, after asking. A Store app is
+removed by Windows directly, which takes about half a minute when the app is running. Dashio
+removes nothing itself. A banner stays for as long as the removal is underway, and Dashio says
+"Uninstalled" only once Windows no longer lists the app. If the uninstaller is closed without
+removing anything it says that instead. An uninstall that
+ends while Dashio is not looking, because Dashio was closed or the uninstaller handed over to a
+launcher, is recorded the next time Dashio reads what is installed.
+
+## What fills a drive
+
+Storage shows every fixed drive with how full it is. "Scan this drive" goes through every folder
+on it and shows the result as a map, each folder a tile as large as what it holds, beside a list
+with sizes, shares and file counts. Press a tile or a line to go into that folder; Back, Forward,
+Up and the path at the top lead out again. "Largest files" lists the biggest files anywhere on
+the drive.
+
+How long a scan takes depends on whether Windows has the drive's folders in memory: seconds
+when it has, a few minutes for a few million files when it has not. Ticking **Scan as
+administrator**, under "Scan this drive" and again when you choose "Scan again", does not depend
+on that. It reads the drive's file table directly, the one place where the drive records every
+file's name, folder and size, which takes seconds and also covers the folders Windows will not
+let an ordinary program list.
+
+A scan only looks: it opens no file and changes nothing. Without administrator rights the
+protected folders, such as other people's profiles, are counted together as "Protected by
+Windows", so the total still matches what the drive reports. A folder's largest files are listed
+by name and the rest are one line ("1,532 other files"). Files kept in the cloud count as nothing
+until they are downloaded.
+
+The last scan of each drive is kept in `%LOCALAPPDATA%\Dashio\drives`, so the page has
+something to show the next time. It holds folder names and sizes and never leaves the PC.
+Deleting that folder while Dashio is closed makes it forget them.
+
+**Delete**, in the right-click menu of a folder or file, asks first and then moves it to the
+Recycle Bin, or deletes it for good if you tick that. It runs with your own rights, never as
+administrator, and refuses a whole drive, Windows, and the folders that hold your programs or
+your profile. It is recorded in History.
+
+How much room each app takes is a column of the Apps page.
 
 ## Ending what is running
 
@@ -106,12 +184,17 @@ After applying, Dashio reads each item back from Windows to confirm the change t
 Every change is written to `%LOCALAPPDATA%\Dashio\journal.jsonl`, and **History** can undo any
 entry. Undoing a service restores its exact start type.
 
+The Startup page also shows what each item's program is using right now, so "starts by itself"
+comes with what that costs. An item an app has added since Dashio first looked is marked
+**New** for two weeks, and Overview says when there are any.
+
 Some scheduled tasks are invisible to ordinary apps. **Settings → Scan with administrator
 rights** lists them, including tasks that are in the registry but hidden from Task Scheduler.
 
 ## Privacy
 
-Dashio never connects to the internet and collects nothing.
+Dashio never connects to the internet and collects nothing. To report a security problem, see
+[SECURITY.md](SECURITY.md).
 
 ## Build and run
 
@@ -136,10 +219,11 @@ dotnet test tests\Dashio.Core.Tests --filter "Category!=Live&Category!=Integrati
 dotnet test tests\Dashio.Core.Tests --filter "Category=Live"
 
 # Integration tests: create a throwaway startup entry and task for the current user,
-# switch them off and on, then remove them. No administrator rights needed.
+# switch them off and on, then remove them. No administrator rights needed. With Developer
+# Mode on, they also register a throwaway Store-style package and uninstall it.
 dotnet test tests\Dashio.Core.Tests --filter "Category=Integration"
 
-# UI tests: drive the real window. Build first.
+# UI tests: drive the real window, kept off the screen and out of the way. Build first.
 pwsh tools\ui-tests.ps1
 ```
 
@@ -153,13 +237,13 @@ pwsh tools\ui-tests.ps1
 | `src/Dashio.App` | The WinUI 3 window. Never runs as administrator. |
 | `src/Dashio.Helper` | A small program that runs elevated for one batch of changes, then exits. |
 | `tests/Dashio.Core.Tests` | The tests above. |
-| `tools` | The UI test script and the icon generator. |
+| `tools` | The UI test script with its focus watchdog, the publish script and the icon generator. |
 
 ## Status
 
-This is the first slice: autostart items grouped by app, with disable, enable and undo.
-Planned next: live memory and CPU by app, storage, change alerts, and unused-app detection.
-There is no installer and the builds are not signed yet.
+Working today: what is running, what starts by itself, what is installed and how much room it
+takes, with switch off, switch on, end and undo. Planned next: alerts for new startup items and
+an export. There is an installer (`tools\publish.ps1`); the builds are not signed yet.
 
 ## License
 

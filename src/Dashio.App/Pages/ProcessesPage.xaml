@@ -1,0 +1,467 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Dashio.App.Pages.ProcessesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Dashio.App"
+    xmlns:pages="using:Dashio.App.Pages"
+    xmlns:vm="using:Dashio.App.ViewModels"
+    NavigationCacheMode="Required">
+
+    <Page.Resources>
+        <!-- The right-click menu of a row. One menu serves every row; it is filled in as it opens. -->
+        <MenuFlyout x:Key="RowMenu" Opening="RowMenu_Opening">
+            <MenuFlyoutItem
+                Click="MenuOpenApp_Click"
+                Tag="open"
+                Text="Open app page">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE8A7;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+            <MenuFlyoutItem
+                Click="MenuEnd_Click"
+                Tag="end"
+                Text="End app">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE711;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+            <MenuFlyoutSeparator />
+            <MenuFlyoutItem
+                Click="MenuReveal_Click"
+                Tag="file"
+                Text="Show file in File Explorer">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE838;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+            <MenuFlyoutItem Click="MenuCopyName_Click" Text="Copy name">
+                <MenuFlyoutItem.Icon>
+                    <FontIcon Glyph="&#xE8C8;" />
+                </MenuFlyoutItem.Icon>
+            </MenuFlyoutItem>
+        </MenuFlyout>
+
+        <!-- One running app. Pressing the row shows or hides its processes. -->
+        <DataTemplate x:Key="GroupTemplate" x:DataType="vm:ProcessGroupViewModel">
+            <Grid
+                MinHeight="48"
+                AutomationProperties.Name="{x:Bind AccessibleName, Mode=OneWay}"
+                ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="72" />
+                    <ColumnDefinition Width="96" />
+                    <ColumnDefinition Width="80" />
+                    <ColumnDefinition Width="84" />
+                </Grid.ColumnDefinitions>
+                <FontIcon
+                    VerticalAlignment="Center"
+                    FontSize="12"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Glyph="{x:Bind ChevronGlyph, Mode=OneWay}" />
+                <Grid
+                    Grid.Column="1"
+                    Width="24"
+                    Height="24"
+                    VerticalAlignment="Center">
+                    <FontIcon
+                        FontSize="20"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Glyph="&#xECAA;"
+                        Visibility="{x:Bind local:Ui.VisibleIfNull(Icon), Mode=OneWay}" />
+                    <Image Source="{x:Bind Icon, Mode=OneWay}" Stretch="Uniform" />
+                </Grid>
+                <TextBlock
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind Name, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="NoWrap" />
+                <TextBlock
+                    Grid.Column="3"
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind CountText, Mode=OneWay}"
+                    TextAlignment="Right" />
+                <!-- The more an app uses, the stronger the tint behind its figure, as in Task Manager. -->
+                <Grid Grid.Column="4" Margin="0,4,0,4">
+                    <Border
+                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                        CornerRadius="{StaticResource ControlCornerRadius}"
+                        Opacity="{x:Bind MemoryHeat, Mode=OneWay}" />
+                    <TextBlock
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="{x:Bind Memory, Mode=OneWay}"
+                        TextAlignment="Right" />
+                </Grid>
+                <Grid Grid.Column="5" Margin="0,4,0,4">
+                    <Border
+                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                        CornerRadius="{StaticResource ControlCornerRadius}"
+                        Opacity="{x:Bind CpuHeat, Mode=OneWay}" />
+                    <TextBlock
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="{x:Bind Cpu, Mode=OneWay}"
+                        TextAlignment="Right" />
+                </Grid>
+                <StackPanel
+                    Grid.Column="6"
+                    Margin="0,0,-8,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="4">
+                    <Button
+                        AutomationProperties.Name="{x:Bind EndName, Mode=OneWay}"
+                        Click="EndGroup_Click"
+                        Style="{StaticResource TableActionButtonStyle}"
+                        Tag="{x:Bind}"
+                        ToolTipService.ToolTip="End everything this app is running"
+                        Visibility="{x:Bind local:Ui.Visible(CanEnd), Mode=OneWay}">
+                        <FontIcon FontSize="14" Glyph="&#xE711;" />
+                    </Button>
+                    <Button
+                        AutomationProperties.Name="{x:Bind OpenName, Mode=OneWay}"
+                        Click="OpenGroup_Click"
+                        Style="{StaticResource TableActionButtonStyle}"
+                        Tag="{x:Bind}"
+                        ToolTipService.ToolTip="Open app page">
+                        <FontIcon FontSize="14" Glyph="&#xE8A7;" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <!-- One process of an expanded app. -->
+        <DataTemplate x:Key="ProcessTemplate" x:DataType="vm:ProcessRowViewModel">
+            <Grid
+                MinHeight="44"
+                AutomationProperties.Name="{x:Bind AccessibleName, Mode=OneWay}"
+                ColumnSpacing="12"
+                ToolTipService.ToolTip="{x:Bind Path}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="52" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="72" />
+                    <ColumnDefinition Width="96" />
+                    <ColumnDefinition Width="80" />
+                    <ColumnDefinition Width="84" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind Detail}"
+                        TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <Grid Grid.Column="3" Margin="0,2,0,2">
+                    <Border
+                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                        CornerRadius="{StaticResource ControlCornerRadius}"
+                        Opacity="{x:Bind MemoryHeat, Mode=OneWay}" />
+                    <TextBlock
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center"
+                        Text="{x:Bind Memory, Mode=OneWay}"
+                        TextAlignment="Right" />
+                </Grid>
+                <Grid Grid.Column="4" Margin="0,2,0,2">
+                    <Border
+                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                        CornerRadius="{StaticResource ControlCornerRadius}"
+                        Opacity="{x:Bind CpuHeat, Mode=OneWay}" />
+                    <TextBlock
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Center"
+                        Text="{x:Bind Cpu, Mode=OneWay}"
+                        TextAlignment="Right" />
+                </Grid>
+                <StackPanel
+                    Grid.Column="5"
+                    Margin="0,0,-8,0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Spacing="4">
+                    <Button
+                        AutomationProperties.Name="{x:Bind EndName}"
+                        Click="EndProcess_Click"
+                        Style="{StaticResource TableActionButtonStyle}"
+                        Tag="{x:Bind}"
+                        ToolTipService.ToolTip="End this process"
+                        Visibility="{x:Bind local:Ui.Visible(CanEnd)}">
+                        <FontIcon FontSize="14" Glyph="&#xE711;" />
+                    </Button>
+                    <Button
+                        AutomationProperties.Name="{x:Bind RevealName}"
+                        Click="RevealProcess_Click"
+                        Style="{StaticResource TableActionButtonStyle}"
+                        Tag="{x:Bind}"
+                        ToolTipService.ToolTip="Show in File Explorer"
+                        Visibility="{x:Bind local:Ui.Visible(HasPath)}">
+                        <FontIcon FontSize="14" Glyph="&#xE838;" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <pages:ProcessRowTemplateSelector
+            x:Key="RowSelector"
+            GroupTemplate="{StaticResource GroupTemplate}"
+            ProcessTemplate="{StaticResource ProcessTemplate}" />
+    </Page.Resources>
+
+    <Grid x:Name="Shell" HorizontalAlignment="Center">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Title on the left, the headline figures on the right. -->
+        <Grid Margin="{StaticResource PageHeaderMargin}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel VerticalAlignment="Center" Spacing="4">
+                <TextBlock
+                    AutomationProperties.AutomationId="ProcessesTitle"
+                    AutomationProperties.HeadingLevel="Level1"
+                    Style="{StaticResource TitleTextBlockStyle}"
+                    Text="Processes" />
+                <TextBlock
+                    AutomationProperties.AutomationId="ProcessesSummary"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource BodyTextBlockStyle}"
+                    Text="{x:Bind ViewModel.Summary, Mode=OneWay}"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel
+                x:Name="StatsPanel"
+                Grid.Row="1"
+                Margin="0,16,0,0"
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="32">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Border Style="{StaticResource IconTileStyle}">
+                        <FontIcon
+                            FontSize="18"
+                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                            Glyph="&#xE950;" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock
+                            Height="28"
+                            AutomationProperties.AutomationId="ProcessesMemory"
+                            Style="{StaticResource SubtitleTextBlockStyle}"
+                            Text="{x:Bind ViewModel.MemoryValue, Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.MemoryDetail, Mode=OneWay}" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Border Style="{StaticResource IconTileStyle}">
+                        <FontIcon
+                            FontSize="18"
+                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                            Glyph="&#xE9D9;" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock
+                            Height="28"
+                            AutomationProperties.AutomationId="ProcessesCpu"
+                            Style="{StaticResource SubtitleTextBlockStyle}"
+                            Text="{x:Bind ViewModel.CpuValue, Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="of the processor in use" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Border Style="{StaticResource IconTileStyle}">
+                        <FontIcon
+                            FontSize="18"
+                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                            Glyph="&#xE9F5;" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock
+                            Height="28"
+                            AutomationProperties.AutomationId="ProcessesCount"
+                            Style="{StaticResource SubtitleTextBlockStyle}"
+                            Text="{x:Bind ViewModel.CountValue, Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="processes running" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <Grid
+            Grid.Row="1"
+            Margin="36,20,36,0"
+            ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <AutoSuggestBox
+                x:Name="FilterBox"
+                Width="280"
+                HorizontalAlignment="Left"
+                AutomationProperties.AutomationId="ProcessesFilter"
+                AutomationProperties.Name="Filter processes"
+                PlaceholderText="Filter by app or program name"
+                QueryIcon="Filter"
+                TextChanged="FilterBox_TextChanged" />
+            <Button
+                Grid.Column="1"
+                AutomationProperties.AutomationId="ProcessesCollapseAll"
+                Click="CollapseAll_Click"
+                ToolTipService.ToolTip="Hide the processes of every app">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontSize="14" Glyph="&#xE70E;" />
+                    <TextBlock Text="Collapse all" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- Column headings. The widths match the row templates. -->
+        <Grid
+            Grid.Row="2"
+            Margin="36,12,36,0"
+            Padding="16,4,16,4"
+            ColumnSpacing="12"
+            Style="{StaticResource TableHeaderStyle}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="72" />
+                <ColumnDefinition Width="96" />
+                <ColumnDefinition Width="80" />
+                <ColumnDefinition Width="84" />
+            </Grid.ColumnDefinitions>
+            <Button
+                x:Name="NameHeader"
+                AutomationProperties.AutomationId="ProcessesSortName"
+                AutomationProperties.Name="Sort by name"
+                Click="Header_Click"
+                Content="App"
+                Style="{StaticResource ColumnHeaderButtonStyle}"
+                Tag="Name" />
+            <Button
+                x:Name="CountHeader"
+                Grid.Column="1"
+                AutomationProperties.AutomationId="ProcessesSortCount"
+                AutomationProperties.Name="Sort by number of processes"
+                Click="Header_Click"
+                Content="Processes"
+                Style="{StaticResource ColumnHeaderRightButtonStyle}"
+                Tag="Count" />
+            <Button
+                x:Name="MemoryHeader"
+                Grid.Column="2"
+                Margin="0"
+                AutomationProperties.AutomationId="ProcessesSortMemory"
+                AutomationProperties.Name="Sort by memory"
+                Click="Header_Click"
+                Content="Memory"
+                Style="{StaticResource ColumnHeaderRightButtonStyle}"
+                Tag="Memory" />
+            <Button
+                x:Name="CpuHeader"
+                Grid.Column="3"
+                Margin="0"
+                AutomationProperties.AutomationId="ProcessesSortCpu"
+                AutomationProperties.Name="Sort by processor use"
+                Click="Header_Click"
+                Content="Processor"
+                Style="{StaticResource ColumnHeaderRightButtonStyle}"
+                Tag="Cpu" />
+        </Grid>
+
+        <ListView
+            x:Name="ProcessList"
+            Grid.Row="3"
+            Padding="36,4,36,24"
+            AutomationProperties.AutomationId="ProcessList"
+            AutomationProperties.Name="Running apps and their processes"
+            IsItemClickEnabled="True"
+            ItemClick="Row_Click"
+            ItemTemplateSelector="{StaticResource RowSelector}"
+            ItemsSource="{x:Bind ViewModel.Rows}"
+            SelectionMode="None"
+            Visibility="{x:Bind local:Ui.Collapsed(ViewModel.IsLoading), Mode=OneWay}">
+            <ListView.ItemContainerStyle>
+                <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                    <Setter Property="Padding" Value="16,0,16,0" />
+                    <Setter Property="MinHeight" Value="44" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="ContextFlyout" Value="{StaticResource RowMenu}" />
+                </Style>
+            </ListView.ItemContainerStyle>
+        </ListView>
+
+        <StackPanel
+            Grid.Row="3"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="16"
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.IsLoading), Mode=OneWay}">
+            <ProgressRing
+                Width="32"
+                Height="32"
+                IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                AutomationProperties.AutomationId="ProcessesLoading"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="Working out which app each process belongs to" />
+        </StackPanel>
+
+        <StackPanel
+            Grid.Row="3"
+            MaxWidth="360"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="8"
+            Visibility="{x:Bind local:Ui.Visible(ViewModel.IsEmpty), Mode=OneWay}">
+            <FontIcon
+                FontSize="32"
+                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                Glyph="&#xE721;" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                Style="{StaticResource BodyStrongTextBlockStyle}"
+                Text="Nothing to show" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind ViewModel.EmptyText, Mode=OneWay}"
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+        </StackPanel>
+    </Grid>
+</Page>

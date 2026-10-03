@@ -10,25 +10,14 @@ namespace Dashio.App.Services;
 /// <param name="UndoBatchId">When set, the banner offers to undo that batch.</param>
 public sealed record Notice(InfoBarSeverity Severity, string Title, string Message, Guid? UndoBatchId = null);
 
-/// <summary>State shared between the window and its pages: the search text and banner messages.</summary>
+/// <summary>What the window and its pages share: the banner messages.</summary>
 public sealed class ShellState
 {
-    public string SearchText { get; private set; } = "";
-
-    public event EventHandler? SearchChanged;
     public event EventHandler<Notice>? Noticed;
-
-    public void SetSearch(string text)
-    {
-        text = text.Trim();
-        if (text == SearchText)
-            return;
-        SearchText = text;
-        SearchChanged?.Invoke(this, EventArgs.Empty);
-    }
 
     public void Notify(Notice notice) => Noticed?.Invoke(this, notice);
 
+    /// <summary>Whether a page's filter text is empty or found in one of the fields.</summary>
     public static bool Matches(string search, params string?[] fields) =>
         search.Length == 0 || fields.Any(f => f is not null && f.Contains(search, StringComparison.CurrentCultureIgnoreCase));
 }

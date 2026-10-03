@@ -12,7 +12,7 @@ namespace Dashio.Core.Processes;
 /// it gets a group of its own. A shared word in a name is never enough, because a wrong match is
 /// worse than a missed one.
 /// </summary>
-public sealed class ProcessAttributor
+public sealed partial class ProcessAttributor
 {
     public const string VirtualMachinesGroupId = "vm";
 
@@ -91,6 +91,15 @@ public sealed class ProcessAttributor
             AddName(Existing(group));
         foreach (var source in _located.Where(s => !s.IsSystem && !_bySource.ContainsKey(s.Id)))
             AddName(_sameAs.GetValueOrDefault(source.Id) ?? FromSource(source, null));
+
+        // Entries that say nothing about where they are installed come last, so one that does
+        // keeps its place. An SDK or a runtime registers one such entry for every version.
+        var unlocated = sources
+            .Where(s => s.Kind != AppSourceKind.DriverPackage && s.InstallLocation is null)
+            .Where(s => !s.IsSystem && !s.IsHiddenComponent && !_bySource.ContainsKey(s.Id))
+            .OrderBy(s => s.Id, StringComparer.OrdinalIgnoreCase);
+        foreach (var source in unlocated)
+            AddName(FromSource(source, null));
     }
 
     /// <summary>The words the names start with in common, or failing that the folder's own name.</summary>
@@ -163,6 +172,11 @@ public sealed class ProcessAttributor
 
     private static readonly string TempFolder = Path.GetTempPath().TrimEnd('\\');
 
+    [System.Text.RegularExpressions.GeneratedRegex(
+        @"^v?\d+\.\d|(^|[-_.])(x86_64|x86|x64|amd64|arm64|aarch64|i686|win32|win64|windows|linux|darwin|msvc|gnu)([-_.]|$)",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase)]
+    private static partial System.Text.RegularExpressions.Regex BuildFolderName();
+
     private static readonly string[] AppDataRoots =
     [
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData).TrimEnd('\\') + "\\",
@@ -224,7 +238,11 @@ public sealed class ProcessAttributor
         {
             if (_byProductFolder.GetValueOrDefault(folder.Key) is { } sameFolder)
                 return Existing(sameFolder);
-            var name = _overrides.Rename(ProductFolders.DisplayName(folder));
+            // A folder named after a version or a build target ("stable-x86_64-pc-windows-msvc") still
+            // says which programs belong together, but it is no name for them: the file knows better.
+            var name = BuildFolderName().IsMatch(folder.Name)
+                ? facts?.Product ?? facts?.Description ?? Path.GetFileNameWithoutExtension(path)
+                : _overrides.Rename(ProductFolders.DisplayName(folder));
             return ByExactName(name, company, path)
                    ?? New($"dir:{folder.Key}", name, folder.Vendor ?? ShortCompany(company), path, null);
         }

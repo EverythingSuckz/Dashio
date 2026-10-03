@@ -6,106 +6,6 @@ using Microsoft.UI.Xaml.Media;
 
 namespace Dashio.App.ViewModels;
 
-/// <summary>A small icon with a count, such as "3 services".</summary>
-public sealed record KindCount(string Glyph, string Count, string Description);
-
-/// <summary>One app in the Apps list.</summary>
-public sealed partial class AppRowViewModel : ObservableObject
-{
-    public AppRowViewModel(AppGroup group)
-    {
-        Group = group;
-        Kinds = group.Items
-            .GroupBy(i => i.Item.Kind)
-            .OrderBy(g => g.Key)
-            .Select(g => new KindCount(
-                ItemText.KindGlyph(g.Key), g.Count().ToString(), ItemText.KindCount(g.Key, g.Count())))
-            .ToList();
-        UpdateUsage();
-        _ = LoadIconAsync();
-    }
-
-    public AppGroup Group { get; }
-    public string Name => Group.Name;
-    public string Publisher => string.IsNullOrWhiteSpace(Group.Publisher) ? "Unknown publisher" : Group.Publisher;
-
-    /// <summary>Which kinds of item the app has, and how many of each.</summary>
-    public IReadOnlyList<KindCount> Kinds { get; }
-
-    public int ItemCount => Group.Items.Count;
-    public int StartsCount => Group.StartsWithWindowsCount;
-    public int RunningCount => Group.RunningCount;
-
-    public bool IsRunning => RunningCount > 0;
-    public bool StartsWithWindows => StartsCount > 0;
-    public bool IsHidden => Group.HiddenFromTaskManager;
-
-    public int AdminFoundCount => Group.Items.Count(i => i.Item.VisibleOnlyWithAdmin || i.Item.IsHiddenTask);
-    public bool IsAdminFound => AdminFoundCount > 0;
-    public bool HasHiddenTask => Group.Items.Any(i => i.Item.IsHiddenTask);
-    public string AdminFoundText => HasHiddenTask ? "Hidden task" : "Admin scan";
-    public string AdminFoundTip => HasHiddenTask
-        ? "Has a task that Task Scheduler does not list. Only the admin scan could see it."
-        : $"{ItemText.Plural(AdminFoundCount, "item")} found only by the admin scan";
-
-    public string RunningText => $"{RunningCount} running";
-    public string StartsText => StartsCount == ItemCount
-        ? $"{ItemText.Plural(StartsCount, "item")} at startup"
-        : $"{StartsCount} of {ItemCount} at startup";
-    public string ItemsText => $"{ItemText.Plural(ItemCount, "item")}, none at startup";
-
-    public string AccessibleName
-    {
-        get
-        {
-            var parts = new List<string> { Name, Publisher };
-            parts.Add(StartsWithWindows ? StartsText : ItemsText);
-            if (IsRunning)
-                parts.Add(RunningText);
-            if (IsHidden)
-                parts.Add("not shown in Task Manager");
-            if (IsAdminFound)
-                parts.Add(HasHiddenTask ? "has a hidden task" : "found by the admin scan");
-            return string.Join(", ", parts);
-        }
-    }
-
-    // The green badge: live figures while the app is running, otherwise how many items the scan saw running.
-    [ObservableProperty]
-    public partial bool IsActive { get; set; }
-
-    [ObservableProperty]
-    public partial string ActivityText { get; set; } = "";
-
-    [ObservableProperty]
-    public partial string ActivityTip { get; set; } = "";
-
-    /// <summary>Call after each measurement.</summary>
-    public void UpdateUsage()
-    {
-        if (AppServices.Monitor.UsageOf(Group.Id) is { } usage)
-        {
-            IsActive = true;
-            ActivityText = $"{UsageText.Memory(usage.MemoryBytes)} · {UsageText.Cpu(usage.CpuPercent)}";
-            ActivityTip = $"Running now: {UsageText.Processes(usage.Processes.Count)} using {UsageText.Memory(usage.MemoryBytes)} of memory and {UsageText.Cpu(usage.CpuPercent)} of the processor";
-        }
-        else
-        {
-            IsActive = IsRunning;
-            ActivityText = RunningText;
-            ActivityTip = $"{ItemText.Plural(RunningCount, "item")} of this app were running at the last scan";
-        }
-    }
-
-    public bool CanToggleAll => Group.Items.Any(i => !i.Item.IsProtected && !i.Item.IsHiddenTask);
-    public string ToggleAllLabel => ItemActions.AnyOn(Group) ? "Turn off everything" : "Turn everything back on";
-
-    [ObservableProperty]
-    public partial ImageSource? Icon { get; set; }
-
-    private async Task LoadIconAsync() => Icon = await AppServices.Icons.GetAsync(Group.IconPath);
-}
-
 public enum DetailTone
 {
     None,
@@ -140,11 +40,18 @@ public sealed partial class ItemRowViewModel : ObservableObject
     private readonly PendingChanges _pending = AppServices.Pending;
     private IReadOnlyList<DetailRow>? _details;
 
-    public ItemRowViewModel(AttributedItem attributed, AppGroup group)
+    public ItemRowViewModel(AttributedItem attributed, AppGroup group, StartupColumns? columns = null)
     {
         Attributed = attributed;
         Group = group;
+        Columns = columns ?? new StartupColumns();
+        // Until the first measurement, what the scan saw.
+        IsRunningNow = attributed.Item.IsRunning == true;
+        MemoryText = IsRunningNow ? "" : "Not running";
     }
+
+    /// <summary>Which columns the Startup table is showing.</summary>
+    public StartupColumns Columns { get; }
 
     public AttributedItem Attributed { get; }
     public AppGroup Group { get; }
@@ -183,6 +90,32 @@ public sealed partial class ItemRowViewModel : ObservableObject
     // The pieces of the status line, shown as separate labels.
     public string StartsLabel => Item.Enabled ? TriggerText : "Turned off";
     public bool IsRunning => Item.IsRunning == true;
+
+    // What the item's program is using right now, for the Startup table. Filled in after each measurement.
+    [ObservableProperty]
+    public partial bool IsRunningNow { get; set; }
+
+    [ObservableProperty]
+    public partial string MemoryText { get; set; } = "";
+
+    [ObservableProperty]
+    public partial string MemoryTip { get; set; } = "";
+
+    public long MemoryBytes { get; private set; } = -1;
+
+    /// <param name="bytes">Null when nothing of the item is running.</param>
+    /// <param name="sharedWith">How many other services live in the same process, whose memory cannot be told apart.</param>
+    public void ShowUsage(long? bytes, int sharedWith)
+    {
+        IsRunningNow = bytes is not null;
+        MemoryBytes = bytes ?? -1;
+        MemoryText = bytes is { } used ? UsageText.Memory(used) : "Not running";
+        MemoryTip = bytes is null
+            ? "Nothing of this item is running at the moment"
+            : sharedWith > 0
+                ? $"The memory of the process it runs in, which it shares with {ItemText.Plural(sharedWith, "other service")}"
+                : "The memory its program is using right now";
+    }
     public bool ShowRunning => IsRunning && Item.Enabled && IsSettled;
     public bool ShowStillRunning => IsRunning && !Item.Enabled && IsSettled;
     public string PendingLabel => IsOn ? "Will turn on when you apply" : "Will turn off when you apply";
@@ -210,7 +143,7 @@ public sealed partial class ItemRowViewModel : ObservableObject
         }
     }
 
-    public string AccessibleName => $"{Name}, {KindName}, {Status}";
+    public string AccessibleName => $"{Name}, {KindName}, {Status}{(IsNew ? ", new" : "")}";
 
     public bool IsWindowsComponent => Item.IsProtected;
     public bool IsHiddenTask => Item.IsHiddenTask;
@@ -218,6 +151,11 @@ public sealed partial class ItemRowViewModel : ObservableObject
     public bool IsAdminFound => Item.VisibleOnlyWithAdmin || Item.IsHiddenTask;
     public string AdminFoundLabel => Item.IsHiddenTask ? "Hidden task" : "Found by admin scan";
     public bool IsMissingFile => Item.Evidence is { Exists: false };
+
+    /// <summary>When the item first appeared, if an app added it since Dashio first looked.</summary>
+    public DateTimeOffset? NewSince => AppServices.State.Seen.NewSince(Item.Id, DateTimeOffset.Now);
+    public bool IsNew => NewSince is not null;
+    public string NewTip => NewSince is { } since ? $"New: first seen {InstalledText.Ago(since)}" : "";
 
     /// <summary>A service installed by a driver package may be needed by the hardware.</summary>
     public bool HasDriverWarning =>

@@ -21,6 +21,13 @@ pwsh tools\ui-tests.ps1 -Exe artifacts\Dashio-0.1.0-x64\Dashio.exe    # UI tests
 
 Close a running `Dashio.exe` before building; it locks the output.
 
+The UI tests must never interrupt whoever is using the PC. Invoking a control through UI
+Automation activates an ordinary window, so with `DASHIO_NO_ACTIVATE=1` the window refuses
+activation, sits off the screen, and keeps its popups from being drawn (`MainWindow.StayInBackground`).
+`tools\FrontWatch.cs` watches every run and fails it if the window came to the front or onto the
+screen. Use the same variable for any copy you start to look at the app, and do not use
+`winapp ui focus`, `click`, `hover` or `send-keys --via send-input`: they take the real pointer or keyboard.
+
 The solution build writes the app to `bin\x64\Debug`, but `dotnet run` and `tools\ui-tests.ps1`
 use `bin\Debug`. Run `dotnet build src\Dashio.App` before the UI tests, or they drive a stale copy.
 
@@ -34,12 +41,27 @@ and built-in COM interop, and the helper shares the app's runtime files. Sort th
   private hive, so a "disabled" startup entry would stay enabled. Do not add packaging.
 - **The window never runs elevated.** Admin work goes through `Dashio.Helper`, started once per
   batch behind a UAC prompt. An elevated window would also block `winapp ui`.
-- **Disable and enable only.** Nothing is deleted. Every change goes through `ChangeCoordinator`,
-  which re-reads the item from Windows before and after and writes the journal. Ending a running
-  program goes through `EndCoordinator` and is journaled too.
-- **The helper trusts only item ids with target states, and process ids with start times.** It
-  looks each item and process up again and refuses Windows components itself. Never make it run
-  a command or path taken from the request.
+- **Dashio deletes nothing by itself.** Items are switched off and on, never removed. Every change
+  goes through `ChangeCoordinator`, which re-reads the item from Windows before and after and
+  writes the journal. Ending a running program goes through `EndCoordinator` and is journaled too.
+  Uninstalling (`Uninstaller`) starts the uninstaller the app registered with Windows, or asks
+  Windows to remove a Store package, exactly as Windows Settings does and only after asking; it
+  runs unelevated, is journaled, and cannot be undone. Never delete an app's files directly.
+- **Files are deleted only where the user picked them.** The Storage page's Delete goes through
+  `FileRemover`, after asking, to the Recycle Bin unless told otherwise. It is journaled, runs
+  unelevated and never through the helper, and refuses a drive, Windows and the folders programs
+  and profiles live in (`FileRemover.WhyNot`). Nothing else in Dashio deletes a file.
+- **An uninstall always ends in the journal.** `UninstallActions` writes it to `PendingUninstalls`
+  before starting, follows the uninstaller and what it starts (`UninstallerProcesses`,
+  `UninstallFollower`), and records Applied only once Windows no longer lists the app. Removing a
+  Store package whose app is running takes Windows half a minute. A `PackageManager` operation
+  that nothing holds is collected during such a wait and then never reports back, so keep it and
+  the manager alive past the `await` (`GC.KeepAlive`); the package list is asked as well. Check a change here against a
+  throwaway package and a throwaway `HKCU` uninstall entry, with the app running and not running.
+- **The helper trusts only item ids with target states, process ids with start times, and a
+  drive letter.** It looks each item and process up again and refuses Windows components itself,
+  and checks the letter against this PC's fixed drives before reading. Never make it run a
+  command or open a path taken from the request. Reading a drive only reads.
 - **A process is its id and its start time together.** Windows reuses ids, so an id alone must
   never be ended. `ProcessEnder` treats a different start time as "already gone".
 - **Windows components are decided by a trusted signature** (`ProtectionPolicy`), judged on the
@@ -63,8 +85,27 @@ and built-in COM interop, and the helper shares the app's runtime files. Sort th
   entries get their app from `ProcessAttributor`, so ids agree across Overview, Apps and Installed.
   A folder nobody can be shown to own stays unclaimed. An app is only called "not opened lately"
   when a record that would have noticed it exists (`UsageResolver.CoversFrom`); never guess.
+- `Dashio.Core/Storage` reads a drive's folders (`DiskScanner`, several folders at once, read-only;
+  `--filter "FullyQualifiedName~DiskScanSpeedReport"` prints how fast)
+  and lays out the map (`Treemap`, pure; `TreemapLayout` in the app glides tiles to new places). A `FolderNode` is read by the UI while the scan fills it
+  in: totals only grow and lists are replaced whole. Keep it that way; do not add locks around it.
+  Only a finished scan is changed afterwards, by `FolderNode.Forget` when something was deleted.
+  `MftReader` builds the same tree from the NTFS file table for the helper (fast, complete, needs
+  admin); its tests run against a hand-built image, so a change there also needs a real
+  "Scan as administrator" by the owner. `FolderTreeFile` keeps the last reading of each drive.
+- `SeenItems` remembers when each startup item first appeared, so later additions can be marked new.
+  Only ordinary scans feed it: tasks the admin scan adds were there all along.
+- `InstalledApp.IsComponent` (`ComponentRule`) marks runtimes, drivers and codecs, which the Apps
+  page leaves out unless asked. The words it goes by are `componentWords` in
+  `attribution-overrides.json`. It only says so when every entry of the app says so itself:
+  leaving out a real app is worse than listing a part. Look at
+  `--filter "FullyQualifiedName~LiveInventoryReport.Apps_list"` after changing it.
+- `AppCatalog` (app) joins the scan, the installed list and what is running into one list of apps
+  by id. The Apps page and the search box both read it, so they cannot disagree about what exists.
 - `ResourceMonitor` (app) runs the measuring loop off the UI thread and raises `Updated` on it.
   Pages update rows in place on each tick; they do not rebuild or re-sort lists, so rows do not jump.
+  The one exception is the folder list while a drive is being read: it starts out in no useful
+  order, so it follows the sizes until the reading is done.
 - `Dashio.App` uses `x:Bind` with explicit modes, `CommunityToolkit.Mvvm` partial properties,
   and code-behind only for navigation, dialogs and event wiring.
 
@@ -87,6 +128,14 @@ and built-in COM interop, and the helper shares the app's runtime files. Sort th
   against physical pixels here, so it fires at the wrong widths on scaled displays.
 - Status colours (green, yellow, red) always come with an icon and words. "On" is not good news,
   so it uses the accent colour rather than green.
+- Lists are tables: facts go in columns under headings that sort, not in badges. A mark that
+  needs explaining is an icon with a tooltip, and is listed in the page's side panel. A cell is
+  never left blank: it says "Not running", "0", "Unknown", in the tertiary text colour.
+- Something that needs the administrator prompt says so ("Administrator access needed") and
+  offers a "Grant access" button with the shield icon, where the missing information would be.
+- A message in the banner belongs to the page it appeared on and closes when the user leaves it.
+- The title-bar search jumps to things (`SearchIndex`); it never filters a page. Each list page
+  has its own filter box and implements `IFilterPage`.
 - Every interactive element has an accessible name; fixed controls also get an `AutomationId`.
 - After changing UI, run the app and look at it. A process that started is not proof that the
   window is right.

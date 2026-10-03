@@ -15,6 +15,12 @@ public enum ChangeAction
 
     /// <summary>End running processes. Cannot be undone.</summary>
     End,
+
+    /// <summary>Start the app's own uninstaller. Cannot be undone.</summary>
+    Uninstall,
+
+    /// <summary>Delete a file or folder picked on the Storage page. Cannot be undone from the log.</summary>
+    Delete,
 }
 
 /// <summary>

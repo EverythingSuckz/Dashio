@@ -15,13 +15,17 @@ namespace Dashio.App;
 
 public sealed partial class MainWindow : Window
 {
-    // Multi-pane layout: navigation plus a content column of up to 1040.
-    private const int DefaultWidth = 1240;
+    // Navigation plus a page wide enough for every column of the tables.
+    private const int DefaultWidth = 1280;
     private const int DefaultHeight = 820;
     private const int MinimumWidth = 640;
     private const int MinimumHeight = 480;
 
+    /// <summary>A message that has just appeared survives the page change that came with it.</summary>
+    private static readonly TimeSpan NoticeSettles = TimeSpan.FromSeconds(1.5);
+
     private Guid? _noticeUndoBatch;
+    private DateTimeOffset _noticeShown;
     private bool _syncingSelection;
 
     public ScanState State => AppServices.State;
@@ -42,6 +46,8 @@ public sealed partial class MainWindow : Window
         AppServices.State.Changed += (_, _) => ShowScanErrors();
         AppServices.Shell.Noticed += (_, notice) => ShowNotice(notice);
         ChangeRunner.BusyChanged += (_, busy) => ShowBusy(busy);
+        UninstallActions.Changed += (_, _) => ShowUninstalls();
+        UninstallActions.Start();
         NavFrame.Navigated += NavFrame_Navigated;
         NavFrame.SizeChanged += (_, e) => Ui.FitToPage(BannerPanel, e.NewSize.Width);
 
@@ -52,6 +58,13 @@ public sealed partial class MainWindow : Window
         {
             // Minimising is reported in different ways on different builds, so any change is checked.
             UpdateMonitorVisibility(AppWindow.IsVisible);
+        };
+
+        // What is installed and what starts by itself is read again when the window is returned to.
+        Activated += (_, e) =>
+        {
+            if (e.WindowActivationState != WindowActivationState.Deactivated && AppServices.State.IsStale)
+                Refresh();
         };
 
         NavView.SelectedItem = OverviewItem;
@@ -67,6 +80,96 @@ public sealed partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr hWnd);
+
+    // ---- Staying out of the way, for the automated tests ----
+
+    private const int ExtendedStyle = -20;
+    private const long NoActivateStyle = 0x08000000;
+    private const uint KeepSizeAndOrder = 0x0015;   // No resize, no change of order, no activation.
+    private const int OffScreen = -30000;
+    private const int SentMessageHook = 4;
+    private const uint ShowWindowMessage = 0x0018;
+    private const uint PositionChangingMessage = 0x0046;
+    private const int CloakAttribute = 13;
+    private const string PopupWindowClass = "Microsoft.UI.Content.PopupWindowSiteBridge";
+
+    private delegate IntPtr SentMessageHandler(int code, IntPtr wParam, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SentMessage
+    {
+        public IntPtr LParam;
+        public IntPtr WParam;
+        public uint Message;
+        public IntPtr Window;
+    }
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int index, IntPtr value);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int width, int height, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetWindowsHookEx(int kind, SentMessageHandler handler, IntPtr module, uint thread);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hWnd, int attribute, ref int value, int size);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder name, int size);
+
+    // Kept in a field so the hook outlives the call that set it.
+    private SentMessageHandler? _hidePopups;
+    private readonly HashSet<IntPtr> _hiddenPopups = [];
+
+    /// <summary>
+    /// The tests drive a copy of the window while someone is working in another app. Invoking a
+    /// control through UI Automation brings an ordinary window to the front and takes the keyboard,
+    /// so this copy refuses activation and sits off the screen. Menus and drop-downs are windows
+    /// of their own that Windows moves back onto a screen, so those are kept from being drawn.
+    /// It is all still rendered, so it can be read and captured.
+    /// </summary>
+    public void StayInBackground()
+    {
+        var window = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
+        var style = GetWindowLongPtr(window, ExtendedStyle).ToInt64() | NoActivateStyle;
+        SetWindowLongPtr(window, ExtendedStyle, (IntPtr)style);
+        SetWindowPos(window, IntPtr.Zero, OffScreen, OffScreen, 0, 0, KeepSizeAndOrder);
+
+        // This runs inside the call that shows a popup, before the popup is on the screen.
+        _hidePopups = (code, wParam, lParam) =>
+        {
+            if (code >= 0)
+            {
+                var sent = Marshal.PtrToStructure<SentMessage>(lParam);
+                if (sent.Message is ShowWindowMessage or PositionChangingMessage && !_hiddenPopups.Contains(sent.Window))
+                    HideIfPopup(sent.Window);
+            }
+            return CallNextHookEx(IntPtr.Zero, code, wParam, lParam);
+        };
+        SetWindowsHookEx(SentMessageHook, _hidePopups, IntPtr.Zero, GetCurrentThreadId());
+    }
+
+    private void HideIfPopup(IntPtr window)
+    {
+        var name = new System.Text.StringBuilder(128);
+        GetClassName(window, name, name.Capacity);
+        if (name.ToString() != PopupWindowClass)
+            return;
+        var cloak = 1;
+        if (DwmSetWindowAttribute(window, CloakAttribute, ref cloak, sizeof(int)) == 0)
+            _hiddenPopups.Add(window);
+    }
 
     private void SizeWindow()
     {
@@ -103,13 +206,17 @@ public sealed partial class MainWindow : Window
         NavigateTop(page);
     }
 
-    private static Type? PageOf(object? item) => (item as NavigationViewItem)?.Tag switch
+    private static Type? PageOf(object? item) => PageOf((item as NavigationViewItem)?.Tag as string);
+
+    private static Type? PageOf(string? tag) => tag switch
     {
         "overview" => typeof(OverviewPage),
+        "processes" => typeof(ProcessesPage),
         "apps" => typeof(AppsPage),
-        "installed" => typeof(InstalledPage),
-        "items" => typeof(AllItemsPage),
+        "storage" => typeof(StoragePage),
+        "startup" => typeof(StartupPage),
         "history" => typeof(HistoryPage),
+        "settings" => typeof(SettingsPage),
         _ => null,
     };
 
@@ -127,14 +234,18 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void NavigateTop(Type page)
+    private void NavigateTop(Type page, object? parameter = null)
     {
-        NavFrame.Navigate(page, null, new EntranceNavigationTransitionInfo());
+        NavFrame.Navigate(page, parameter, new EntranceNavigationTransitionInfo());
         NavFrame.BackStack.Clear();
     }
 
     private void NavFrame_Navigated(object sender, NavigationEventArgs e)
     {
+        // A message is about the page it appeared on, so it does not follow to the next one.
+        if (NoticeBar.IsOpen && DateTimeOffset.Now - _noticeShown > NoticeSettles)
+            NoticeBar.IsOpen = false;
+
         var page = e.SourcePageType;
         _syncingSelection = true;
         try
@@ -143,10 +254,12 @@ public sealed partial class MainWindow : Window
                 NavView.SelectedItem = NavView.SettingsItem;
             else if (page == typeof(OverviewPage))
                 NavView.SelectedItem = OverviewItem;
-            else if (page == typeof(InstalledPage))
-                NavView.SelectedItem = InstalledItem;
-            else if (page == typeof(AllItemsPage))
-                NavView.SelectedItem = AllItemsItem;
+            else if (page == typeof(ProcessesPage))
+                NavView.SelectedItem = ProcessesItem;
+            else if (page == typeof(StoragePage))
+                NavView.SelectedItem = StorageItem;
+            else if (page == typeof(StartupPage))
+                NavView.SelectedItem = StartupItem;
             else if (page == typeof(HistoryPage))
                 NavView.SelectedItem = HistoryItem;
             else if (page == typeof(AppsPage))
@@ -185,15 +298,77 @@ public sealed partial class MainWindow : Window
 
     private void SearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
-        AppServices.Shell.SetSearch(sender.Text);
-        var page = NavFrame.CurrentSourcePageType;
-        if (sender.Text.Length > 0 && page != typeof(AppsPage) && page != typeof(AllItemsPage) && page != typeof(InstalledPage))
-            NavigateTop(typeof(AppsPage));
+        if (args.Reason == AutoSuggestionBoxTextChangeReason.SuggestionChosen)
+            return;
+
+        var results = SearchIndex.Find(sender.Text);
+        foreach (var result in results)
+            _ = result.LoadIconAsync();
+        if (results.Count == 0 && sender.Text.Trim().Length > 0)
+        {
+            results.Add(new SearchResult
+            {
+                Target = SearchTarget.None,
+                Title = "Nothing found",
+                Caption = "Try the name of an app, a program, a service or a setting",
+                Glyph = "\uE721",
+            });
+        }
+        sender.ItemsSource = results;
+        // The list opens by itself only while the box has the keyboard; text can also arrive without it.
+        sender.IsSuggestionListOpen = results.Count > 0;
+    }
+
+    /// <summary>Enter goes to the first suggestion; choosing one goes to that one.</summary>
+    private void SearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        var result = args.ChosenSuggestion as SearchResult
+                     ?? (sender.ItemsSource as List<SearchResult>)?.FirstOrDefault();
+        if (result is null || result.Target == SearchTarget.None)
+            return;
+
+        sender.Text = "";
+        sender.ItemsSource = null;
+        GoTo(result);
+    }
+
+    private void GoTo(SearchResult result)
+    {
+        switch (result.Target)
+        {
+            case SearchTarget.App:
+                NavFrame.Navigate(
+                    typeof(AppDetailPage), result.Id,
+                    new SlideNavigationTransitionInfo { Effect = SlideNavigationTransitionEffect.FromRight });
+                break;
+            case SearchTarget.Process:
+                NavigateTop(typeof(ProcessesPage), result.Text);
+                break;
+            case SearchTarget.StartupItem:
+                NavigateTop(typeof(StartupPage), new StartupTarget(Search: result.Text));
+                break;
+            case SearchTarget.Setting:
+                NavigateTop(typeof(SettingsPage), result.Id);
+                break;
+            case SearchTarget.Page when PageOf(result.Id) is { } page:
+                NavigateTop(page);
+                break;
+        }
     }
 
     private void Search_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         SearchBox.Focus(FocusState.Keyboard);
+        args.Handled = true;
+    }
+
+    /// <summary>Ctrl+F goes to the filter of the page that is showing, or to the search box when it has none.</summary>
+    private void Filter_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (NavFrame.Content is IFilterPage page)
+            page.FocusFilter();
+        else
+            SearchBox.Focus(FocusState.Keyboard);
         args.Handled = true;
     }
 
@@ -203,13 +378,11 @@ public sealed partial class MainWindow : Window
         args.Handled = true;
     }
 
-    private void Refresh_Click(object sender, RoutedEventArgs e) => Refresh();
-
     private void Refresh()
     {
         // Queued switches survive a rescan: applying re-reads each item from Windows anyway.
-        NoticeBar.IsOpen = false;
-        _ = AppServices.State.RefreshAsync();
+        if (!ChangeRunner.IsBusy)
+            _ = AppServices.State.RefreshAsync();
     }
 
     private void ShowScanErrors()
@@ -236,6 +409,7 @@ public sealed partial class MainWindow : Window
         NoticeBar.Title = notice.Title;
         NoticeBar.Message = notice.Message;
         _noticeUndoBatch = notice.UndoBatchId;
+        _noticeShown = DateTimeOffset.Now;
         NoticeUndoButton.Visibility = notice.UndoBatchId is null ? Visibility.Collapsed : Visibility.Visible;
         _closingBars.Remove(NoticeBar);     // A fade-out still running must not close the new notice.
         NoticeBar.IsOpen = true;
@@ -253,6 +427,31 @@ public sealed partial class MainWindow : Window
         else
         {
             BusyBar.IsOpen = false;
+        }
+    }
+
+    private void ShowUninstalls()
+    {
+        var underway = UninstallActions.Current;
+        if (underway.Count == 0)
+        {
+            UninstallBar.IsOpen = false;
+            return;
+        }
+
+        var first = underway.First();
+        var others = underway.Count > 1 ? $" and {ItemText.Plural(underway.Count - 1, "other")}" : "";
+        UninstallTitle.Text = first.ByWindows
+            ? $"Uninstalling {first.Name}{others}"
+            : $"The uninstaller of {first.Name}{others} is open";
+        UninstallDetail.Text = first.ByWindows
+            ? "Windows is removing the app. This can take a minute when the app is running."
+            : "Finish it there. Dashio says so here when the app is gone.";
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(UninstallBar, UninstallTitle.Text);
+        if (!UninstallBar.IsOpen)
+        {
+            UninstallBar.IsOpen = true;
+            Motion.Enter(UninstallBar, fromY: -12);
         }
     }
 
@@ -314,6 +513,7 @@ public sealed partial class MainWindow : Window
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary,
         };
+        ConfirmDialog.WithIcons(dialog, "\uE73E");
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
             return;
 

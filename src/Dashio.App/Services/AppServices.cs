@@ -26,6 +26,7 @@ public static class AppServices
     public static ShellState Shell { get; } = new();
     public static ResourceMonitor Monitor { get; } = new(Evidence);
     public static InventoryState Inventory { get; } = new();
+    public static DiskScans Disk { get; } = new();
     public static ProcessEnder Ender { get; } = new(evidence: Evidence);
     public static EndCoordinator Ends { get; } = new(requests => Ender.EndAll(requests), Helper, Journal);
 }

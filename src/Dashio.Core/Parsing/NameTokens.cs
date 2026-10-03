@@ -61,7 +61,8 @@ public static partial class NameTokens
             cleaned = TrailingArchitecture().Replace(cleaned, "");
             cleaned = TrailingVersion().Replace(cleaned, "");
         }
-        cleaned = cleaned.Trim();
+        // "Redistributable (x64) - 11.0" leaves the dash that led up to the version.
+        cleaned = cleaned.Trim().TrimEnd('-').TrimEnd();
         return cleaned.Length == 0 ? name : cleaned;
     }
 

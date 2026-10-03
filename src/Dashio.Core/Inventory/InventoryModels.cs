@@ -36,6 +36,31 @@ public sealed record InstalledApp(
 
     /// <summary>Has something a person opens. Drivers and runtimes do not, so they are never called unused.</summary>
     public bool IsLaunchable => Shortcuts.Count > 0 || AppIds.Count > 0;
+
+    /// <summary>
+    /// A part that other software needs, not an app in its own right: a runtime, a redistributable,
+    /// a driver, a codec. Only said when every entry says so itself, because hiding a real app is
+    /// worse than listing a part: a game opened from its launcher has nothing to open either.
+    /// </summary>
+    public bool IsComponent => !IsLaunchable && Sources.Count > 0 && Sources.All(ComponentRule.IsComponent);
+}
+
+/// <summary>
+/// Tells the parts other software needs from the apps a person chose to install. The words a part
+/// calls itself by are in <c>attribution-overrides.json</c> ("componentWords").
+/// </summary>
+public static class ComponentRule
+{
+    private static readonly Lazy<Dashio.Core.Attribution.AttributionOverrides> Overrides =
+        new(Dashio.Core.Attribution.AttributionOverrides.LoadDefault);
+
+    public static bool IsComponent(AppSource source) => source.Kind switch
+    {
+        // A package with nothing to open: a codec, a language pack, a framework, a context menu.
+        AppSourceKind.StorePackage => source.AppIds.Count == 0,
+        AppSourceKind.InstalledApp => Overrides.Value.IsComponentName(source.Name),
+        _ => true,
+    };
 }
 
 /// <summary>One program Windows remembers launching from Start, the taskbar or Explorer.</summary>

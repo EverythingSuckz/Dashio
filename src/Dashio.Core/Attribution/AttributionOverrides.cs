@@ -12,7 +12,8 @@ public sealed class AttributionOverrides
     public sealed record GroupRename(string NameRegex, string Name);
 
     private sealed record FileModel(
-        List<PublisherAlias>? PublisherAliases, List<ItemRule>? ItemRules, List<GroupRename>? GroupRenames);
+        List<PublisherAlias>? PublisherAliases, List<ItemRule>? ItemRules, List<GroupRename>? GroupRenames,
+        List<string>? ComponentWords = null);
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
@@ -21,6 +22,8 @@ public sealed class AttributionOverrides
     private readonly Dictionary<string, HashSet<string>> _aliasWords = new(StringComparer.Ordinal);
     private readonly List<(Regex Pattern, string Publisher)> _itemRules = [];
     private readonly List<(Regex Pattern, string Name)> _renames = [];
+    private readonly HashSet<string> _componentWords = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _componentPhrases = [];
 
     public static AttributionOverrides Empty { get; } = new();
 
@@ -59,6 +62,13 @@ public sealed class AttributionOverrides
             overrides._itemRules.Add((new Regex(rule.NameRegex, options), rule.Publisher));
         foreach (var rename in model.GroupRenames ?? [])
             overrides._renames.Add((new Regex(rename.NameRegex, options), rename.Name));
+        foreach (var word in (model.ComponentWords ?? []).Select(w => w.Trim()).Where(w => w.Length > 0))
+        {
+            if (word.Contains(' '))
+                overrides._componentPhrases.Add(word);
+            else
+                overrides._componentWords.Add(word);
+        }
         return overrides;
     }
 
@@ -88,6 +98,14 @@ public sealed class AttributionOverrides
         }
         return null;
     }
+
+    /// <summary>
+    /// Whether an installed entry's name says it is a part other software needs ("Redistributable",
+    /// "Runtime"). Single words match whole words only; an entry with a space matches as a phrase.
+    /// </summary>
+    public bool IsComponentName(string name) =>
+        NameTokens.Words(name, splitCamelCase: false).Any(_componentWords.Contains) ||
+        _componentPhrases.Any(p => name.Contains(p, StringComparison.OrdinalIgnoreCase));
 
     public string Rename(string groupName)
     {

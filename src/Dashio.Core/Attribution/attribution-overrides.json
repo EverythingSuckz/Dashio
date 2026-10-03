@@ -7,5 +7,14 @@
   ],
   "groupRenames": [
     { "nameRegex": "^Intel Killer Performance Suite$", "name": "Intel Killer" }
+  ],
+  "componentWords": [
+    "redistributable",
+    "redist",
+    "runtime",
+    "sdk",
+    "driver",
+    "drivers",
+    "development kit"
   ]
 }
