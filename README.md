@@ -4,20 +4,33 @@
 
 # Dashio
 
-**See what every app on your PC is doing, and switch off what it starts by itself.**
+**A dashboard for Windows 11.**
 
-A dashboard for Windows 11: what is running, what is installed, what fills the drive and what
-starts on its own, grouped by app.
-
-Windows 11 &nbsp;·&nbsp; .NET 10 &nbsp;·&nbsp; WinUI 3 &nbsp;·&nbsp; [MIT](LICENSE) &nbsp;·&nbsp; No network, no telemetry
-
-[The pages](#the-pages) &nbsp;·&nbsp; [Changing things](#changing-things) &nbsp;·&nbsp; [Build and run](#build-and-run) &nbsp;·&nbsp; [Privacy](#privacy)
+See what's running, what's installed, what fills the drive and what starts on its own, grouped by app.
 
 <br>
 
 <img src="docs/screenshots/overview.png" alt="The Overview page" width="900">
 
 </div>
+
+## Contents
+
+- [Why](#why)
+- [Install](#install)
+- [The pages](#the-pages)
+- [What it reads](#what-it-reads)
+- [What is running](#what-is-running)
+- [What is installed](#what-is-installed)
+- [What fills a drive](#what-fills-a-drive)
+- [Ending what is running](#ending-what-is-running)
+- [How items are matched to apps](#how-items-are-matched-to-apps)
+- [Changing things](#changing-things)
+- [Privacy](#privacy)
+- [Build and run](#build-and-run)
+- [Tests](#tests)
+- [Layout](#layout)
+- [License](#license)
 
 ## Why
 
@@ -41,6 +54,15 @@ too, but cannot be undone from Dashio.
     <td width="50%"><img src="docs/screenshots/startup.png" alt="The Startup page"><br><p align="center"><b>Startup</b><br>Services, tasks and startup entries</p></td>
   </tr>
 </table>
+
+## Install
+
+Download the installer from the [latest release](https://github.com/EverythingSuckz/Dashio/releases/latest)
+and run it. It needs Windows 11 and nothing else: .NET and the Windows App SDK are included.
+
+The installer is not signed yet, so Windows SmartScreen says "Windows protected your PC" the
+first time. Choose **More info**, then **Run anyway**. Each release lists SHA-256 checksums to
+check the download against.
 
 ## The pages
 
@@ -260,12 +282,7 @@ pwsh tools\ui-tests.ps1
 | `src/Dashio.Helper` | A small program that runs elevated for one batch of changes, then exits. |
 | `tests/Dashio.Core.Tests` | The tests above. |
 | `tools` | The UI test script with its focus watchdog, the publish script and the icon generator. |
-
-## Status
-
-Working today: what is running, what starts by itself, what is installed and how much room it
-takes, with switch off, switch on, end and undo. Planned next: alerts for new startup items and
-an export. There is an installer (`tools\publish.ps1`); the builds are not signed yet.
+| `.github/workflows` | CI on every push, and the release that a version tag builds and publishes. |
 
 ## License
 

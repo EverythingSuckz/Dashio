@@ -491,3 +491,9 @@ docs/superpowers/
 # A local link to AGENTS.md
 CLAUDE.md
 
+
+# Exported keys must never be committed.
+*.asc
+*.gpg
+*.pfx
+*.key

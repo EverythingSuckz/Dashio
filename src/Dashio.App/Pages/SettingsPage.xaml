@@ -23,7 +23,7 @@
                     Margin="0,0,0,4"
                     AutomationProperties.HeadingLevel="Level2"
                     Style="{StaticResource BodyStrongTextBlockStyle}"
-                    Text="Appearance" />
+                    Text="General" />
                 <controls:SettingsCard Description="Choose light or dark, or follow Windows." Header="Theme">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE790;" />
@@ -38,6 +38,18 @@
                         <ComboBoxItem Content="Light" Tag="Light" />
                         <ComboBoxItem Content="Dark" Tag="Dark" />
                     </ComboBox>
+                </controls:SettingsCard>
+
+                <controls:SettingsCard Description="Opens Dashio when you sign in. It is an ordinary startup entry, so it also shows on the Startup page." Header="Start with Windows">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE7E8;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ToggleSwitch
+                        x:Name="StartWithWindowsSwitch"
+                        MinWidth="0"
+                        AutomationProperties.AutomationId="StartWithWindowsSwitch"
+                        AutomationProperties.Name="Start with Windows"
+                        Toggled="StartWithWindows_Toggled" />
                 </controls:SettingsCard>
 
                 <TextBlock

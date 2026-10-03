@@ -147,4 +147,6 @@ and built-in COM interop, and the helper shares the app's runtime files. Sort th
 
 - Commits are GPG-signed and need the owner's passphrase. Do not commit; the owner tests first
   and commits. Never bypass signing.
+- A commit message is one line, `type: short message` (`feat`, `fix`, `docs`, `ci`, `chore`).
+  Never add a description under it.
 - `docs/superpowers/` (specs and plans) is local only and gitignored.

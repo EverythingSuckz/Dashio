@@ -1,5 +1,6 @@
 # Builds src\Dashio.App\Assets\AppIcon.ico from the two drawings beside it:
 # AppIcon.svg, and AppIconSmall.svg, a plainer one for the sizes where the detail would blur.
+# It also builds the installer's pictures in installer\art from side.svg, side-dark.svg and the logo.
 # Microsoft Edge draws them, without opening a window. Run from anywhere:  pwsh tools\make-icon.ps1
 
 Add-Type -AssemblyName System.Drawing
@@ -17,14 +18,14 @@ if (-not $edge) { throw 'Microsoft Edge is needed to draw the icon and was not f
 $work = Join-Path ([System.IO.Path]::GetTempPath()) "dashio-icon-$([guid]::NewGuid().ToString('N'))"
 New-Item -ItemType Directory -Force $work | Out-Null
 
-function Get-Drawing([string]$svg) {
+function Get-Drawing([string]$svg, [int]$width = $drawnAt, [int]$height = $drawnAt) {
     $page = Join-Path $work 'page.html'
     $png = Join-Path $work 'drawing.png'
-    $source = ([uri](Join-Path $assets $svg)).AbsoluteUri
-    "<html><body style='margin:0;background:transparent'><img src='$source' width='$drawnAt' height='$drawnAt'></body></html>" |
+    $source = ([uri]([System.IO.Path]::IsPathRooted($svg) ? $svg : (Join-Path $assets $svg))).AbsoluteUri
+    "<html><body style='margin:0;background:transparent'><img src='$source' width='$width' height='$height'></body></html>" |
         Set-Content $page -Encoding utf8
     $arguments = '--headless=new', '--disable-gpu', '--hide-scrollbars', '--default-background-color=00000000',
-        "--user-data-dir=`"$(Join-Path $work 'profile')`"", "--window-size=$drawnAt,$drawnAt",
+        "--user-data-dir=`"$(Join-Path $work 'profile')`"", "--window-size=$width,$height",
         "--screenshot=`"$png`"", ([uri]$page).AbsoluteUri
     $process = Start-Process $edge -ArgumentList $arguments -PassThru -WindowStyle Hidden
     if (-not $process.WaitForExit(60000) -or -not (Test-Path $png)) { throw "Edge did not draw $svg." }
@@ -33,8 +34,9 @@ function Get-Drawing([string]$svg) {
     return [System.Drawing.Bitmap]::new([System.IO.MemoryStream]::new($bytes))
 }
 
-function New-IconPng([System.Drawing.Bitmap]$drawing, [int]$size) {
-    $bitmap = [System.Drawing.Bitmap]::new($size, $size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+function New-IconPng([System.Drawing.Bitmap]$drawing, [int]$size, [int]$height = 0) {
+    if ($height -eq 0) { $height = $size }
+    $bitmap = [System.Drawing.Bitmap]::new($size, $height, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $g = [System.Drawing.Graphics]::FromImage($bitmap)
     $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
     $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
@@ -43,7 +45,7 @@ function New-IconPng([System.Drawing.Bitmap]$drawing, [int]$size) {
     # Without this the edge pixels are blended with a border that is not there.
     $attributes = [System.Drawing.Imaging.ImageAttributes]::new()
     $attributes.SetWrapMode([System.Drawing.Drawing2D.WrapMode]::TileFlipXY)
-    $g.DrawImage($drawing, [System.Drawing.Rectangle]::new(0, 0, $size, $size), 0, 0, $drawing.Width, $drawing.Height,
+    $g.DrawImage($drawing, [System.Drawing.Rectangle]::new(0, 0, $size, $height), 0, 0, $drawing.Width, $drawing.Height,
         [System.Drawing.GraphicsUnit]::Pixel, $attributes)
     $g.Dispose()
     $stream = [System.IO.MemoryStream]::new()
@@ -100,6 +102,17 @@ try {
     $sg.Dispose()
     $sheet.Save($preview, [System.Drawing.Imaging.ImageFormat]::Png)
     Write-Host "Preview: $preview"
+
+    # The installer's pictures, one of each for 100, 150, 200 and 250% scaling.
+    $art = (Resolve-Path (Join-Path $PSScriptRoot '..\installer\art')).Path
+    $light = Get-Drawing (Join-Path $art 'side.svg') 820 1570
+    $dark = Get-Drawing (Join-Path $art 'side-dark.svg') 820 1570
+    foreach ($scale in 100, 150, 200, 250) {
+        [System.IO.File]::WriteAllBytes((Join-Path $art "side-light-$scale.png"), (New-IconPng $light (164 * $scale / 100) (314 * $scale / 100)))
+        [System.IO.File]::WriteAllBytes((Join-Path $art "side-dark-$scale.png"), (New-IconPng $dark (164 * $scale / 100) (314 * $scale / 100)))
+        [System.IO.File]::WriteAllBytes((Join-Path $art "small-$scale.png"), (New-IconPng $full (58 * $scale / 100)))
+    }
+    Write-Host "Wrote the installer's pictures to $art"
 }
 finally {
     Start-Sleep -Milliseconds 500

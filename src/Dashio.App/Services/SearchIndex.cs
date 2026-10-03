@@ -65,6 +65,7 @@ public static class SearchIndex
     private static readonly Place[] Settings =
     [
         new("Theme", "Setting", "\uE790", "ThemeBox", "light dark appearance colour color mode"),
+        new("Start with Windows", "Setting", "\uE7E8", "StartWithWindowsSwitch", "startup sign in boot autostart launch"),
         new("Show Windows components", "Setting", "\uE890", "ShowWindowsSwitch", "system microsoft parts hide"),
         new("Scan again now", "Setting", "\uE72C", "RescanButton", "refresh rescan reload update f5"),
         new("Scan with administrator rights", "Setting", "\uEA18", "AdminScanButton", "admin hidden tasks elevated"),

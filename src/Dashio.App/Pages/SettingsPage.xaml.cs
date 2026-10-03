@@ -24,6 +24,7 @@ public sealed partial class SettingsPage : Page
             _ => 0,
         };
         ShowWindowsSwitch.IsOn = settings.ShowWindowsComponents;
+        StartWithWindowsSwitch.IsOn = StartWithWindows.IsOn;
         RefreshBox.SelectedIndex = Math.Max(0, Array.IndexOf(SettingsStore.RefreshChoices, settings.RefreshSeconds));
         LogCard.Description = ChangeJournal.DefaultPath;
 
@@ -35,6 +36,11 @@ public sealed partial class SettingsPage : Page
     /// <summary>The search box opens this page with the name of the control to go to.</summary>
     protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
+        // The entry can have been switched from the Startup page or Task Manager since.
+        _loading = true;
+        StartWithWindowsSwitch.IsOn = StartWithWindows.IsOn;
+        _loading = false;
+
         if (e.Parameter is not string name || FindName(name) is not Control control)
             return;
 
@@ -66,6 +72,22 @@ public sealed partial class SettingsPage : Page
         AppServices.Settings.RefreshSeconds = seconds;
         AppServices.Settings.Save();
         AppServices.Monitor.RefreshNow();
+    }
+
+    private async void StartWithWindows_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading)
+            return;
+        if (!StartWithWindows.Set(StartWithWindowsSwitch.IsOn))
+        {
+            AppServices.Shell.Notify(new Notice(InfoBarSeverity.Error, "The startup entry could not be changed", ""));
+            _loading = true;
+            StartWithWindowsSwitch.IsOn = StartWithWindows.IsOn;
+            _loading = false;
+            return;
+        }
+        // So the Startup page lists the entry, or no longer does.
+        await AppServices.State.RefreshAsync();
     }
 
     private void ShowWindows_Toggled(object sender, RoutedEventArgs e)
