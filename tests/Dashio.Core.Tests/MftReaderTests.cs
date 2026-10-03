@@ -43,7 +43,7 @@ internal sealed class FakeNtfsDrive : IVolume
     {
         var text = Encoding.Unicode.GetBytes(name);
         var content = new byte[0x42 + text.Length];
-        BinaryPrimitives.WriteInt64LittleEndian(content, parent | (1L << 48));
+        BinaryPrimitives.WriteInt64LittleEndian(content, (uint)parent | (1L << 48));
         content[0x40] = (byte)name.Length;
         content[0x41] = nameSpace;
         text.CopyTo(content, 0x42);
@@ -92,7 +92,7 @@ internal sealed class FakeNtfsDrive : IVolume
         BinaryPrimitives.WriteUInt16LittleEndian(record.AsSpan(6), 3);
         BinaryPrimitives.WriteUInt16LittleEndian(record.AsSpan(0x14), 0x38);
         BinaryPrimitives.WriteUInt16LittleEndian(record.AsSpan(0x16), (ushort)((inUse ? 1 : 0) | (folder ? 2 : 0)));
-        BinaryPrimitives.WriteInt64LittleEndian(record.AsSpan(0x20), partOf == 0 ? 0 : partOf | (1L << 48));
+        BinaryPrimitives.WriteInt64LittleEndian(record.AsSpan(0x20), partOf == 0 ? 0 : (uint)partOf | (1L << 48));
 
         var at = 0x38;
         foreach (var attribute in attributes)
