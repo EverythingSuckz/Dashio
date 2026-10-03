@@ -51,6 +51,9 @@
   <!-- The elevated helper is a separate exe that must sit next to the app. -->
   <Target Name="BuildAndCopyHelper" AfterTargets="Build">
     <!-- The helper's output folder depends on how the build was started, so ask the build where it went. -->
+    <!-- The helper is not a project reference, so nothing restores it on a fresh checkout. The extra
+         property makes this a separate run from the build below, which must see the restored files. -->
+    <MSBuild Projects="..\Dashio.Helper\Dashio.Helper.csproj" Targets="Restore" Properties="Configuration=$(Configuration);RestoringHelper=true" />
     <MSBuild Projects="..\Dashio.Helper\Dashio.Helper.csproj" Targets="Build" Properties="Configuration=$(Configuration)">
       <Output TaskParameter="TargetOutputs" ItemName="HelperAssembly" />
     </MSBuild>
