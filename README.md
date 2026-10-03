@@ -57,7 +57,7 @@ too, but cannot be undone from Dashio.
 
 ## Install
 
-Download the installer from the [latest release](https://github.com/EverythingSuckz/Dashio/releases/latest)
+Download the installer from the [releases page](https://github.com/EverythingSuckz/Dashio/releases)
 and run it. It needs Windows 11 and nothing else: .NET and the Windows App SDK are included.
 
 The installer is not signed yet, so Windows SmartScreen says "Windows protected your PC" the
@@ -237,7 +237,10 @@ rights** lists them, including tasks that are in the registry but hidden from Ta
 
 ## Privacy
 
-Dashio never connects to the internet and collects nothing. To report a security problem, see
+Dashio collects nothing, and everything it reads stays on your PC. It uses the internet in one
+case only: when you press **Check for updates** in Settings, it asks GitHub which version is the
+latest. It sends nothing about your PC and downloads nothing; the release page opens in your
+browser. To report a security problem, see
 [SECURITY.md](SECURITY.md).
 
 ## Build and run

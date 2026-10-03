@@ -70,6 +70,7 @@ public static class SearchIndex
         new("Scan again now", "Setting", "\uE72C", "RescanButton", "refresh rescan reload update f5"),
         new("Scan with administrator rights", "Setting", "\uEA18", "AdminScanButton", "admin hidden tasks elevated"),
         new("Check when apps were last opened", "Setting", "\uE823", "UsageCheckButton", "unused last opened admin prefetch"),
+        new("Check for updates", "Setting", "\uE895", "UpdateCheckButton", "update version latest new release upgrade"),
         new("Refresh every", "Setting", "\uE72C", "RefreshBox", "interval live update pause seconds measure"),
         new("Change log", "Setting", "\uE8B7", "LogCard", "journal folder file history"),
     ];

@@ -85,6 +85,9 @@ try {
     [System.IO.File]::WriteAllBytes($output, $file.ToArray())
     Write-Host "Wrote $output ($($file.Length) bytes, sizes: $($sizes -join ', '))"
 
+    # The same drawing as a picture, for the About card in Settings.
+    [System.IO.File]::WriteAllBytes((Join-Path $assets 'AppLogo.png'), (New-IconPng $full 256))
+
     # Every size side by side on a light and a dark strip, for a quick look.
     $preview = Join-Path ([System.IO.Path]::GetTempPath()) 'dashio-icon-preview.png'
     $sheet = [System.Drawing.Bitmap]::new(720, 560)

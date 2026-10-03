@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using Dashio.App.Services;
 using Dashio.Core.Journal;
+using Dashio.Core.Updates;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -9,7 +10,12 @@ namespace Dashio.App.Pages;
 
 public sealed partial class SettingsPage : Page
 {
+    private static readonly Version AppVersion = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
+    private static string VersionText => $"{AppVersion.Major}.{AppVersion.Minor}.{AppVersion.Build}";
+    private static string UpdateIdle => $"You have version {VersionText}. Checking asks GitHub once; nothing is downloaded.";
+
     private bool _loading = true;
+    private string _updatePage = UpdateChecker.ReleasesPage;
 
     public SettingsPage()
     {
@@ -28,8 +34,8 @@ public sealed partial class SettingsPage : Page
         RefreshBox.SelectedIndex = Math.Max(0, Array.IndexOf(SettingsStore.RefreshChoices, settings.RefreshSeconds));
         LogCard.Description = ChangeJournal.DefaultPath;
 
-        var version = Assembly.GetExecutingAssembly().GetName().Version;
-        AboutExpander.Description = version is null ? "" : $"Version {version.Major}.{version.Minor}.{version.Build}";
+        AboutExpander.Description = $"Version {VersionText}";
+        UpdateCard.Description = UpdateIdle;
         _loading = false;
     }
 
@@ -147,6 +153,41 @@ public sealed partial class SettingsPage : Page
             UsageCheckButton.IsEnabled = true;
         }
     }
+
+    /// <summary>The only time Dashio uses the network, and only because the button was pressed.</summary>
+    private async void UpdateCheck_Click(object sender, RoutedEventArgs e)
+    {
+        UpdateCheckButton.IsEnabled = false;
+        UpdateRing.IsActive = true;
+        UpdatePageButton.Visibility = Visibility.Collapsed;
+        try
+        {
+            var current = new Version(AppVersion.Major, AppVersion.Minor, AppVersion.Build);
+            var result = await new UpdateChecker().CheckAsync(current);
+            if (result.Error is not null)
+            {
+                UpdateCard.Description = $"{result.Error} You have version {VersionText}.";
+            }
+            else if (result is { IsNewer: true, Latest: { } latest })
+            {
+                _updatePage = latest.Page;
+                UpdateCard.Description = $"Version {latest.Version} is available. You have {VersionText}.";
+                UpdatePageButton.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                UpdateCard.Description = $"You have the latest version, {VersionText}.";
+            }
+        }
+        finally
+        {
+            UpdateRing.IsActive = false;
+            UpdateCheckButton.IsEnabled = true;
+        }
+    }
+
+    private void UpdatePage_Click(object sender, RoutedEventArgs e) =>
+        Process.Start(new ProcessStartInfo(_updatePage) { UseShellExecute = true });
 
     private void OpenLogFolder_Click(object sender, RoutedEventArgs e)
     {

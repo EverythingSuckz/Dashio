@@ -69,7 +69,10 @@ and built-in COM interop, and the helper shares the app's runtime files. Sort th
   never be ended. `ProcessEnder` treats a different start time as "already gone".
 - **Windows components are decided by a trusted signature** (`ProtectionPolicy`), judged on the
   file that actually runs, not on a host such as `cmd.exe` or `svchost.exe`.
-- **No network access and no telemetry**, anywhere.
+- **No telemetry, and no network use except one place.** `UpdateChecker` asks GitHub for the list
+  of releases, and only when the user presses "Check for updates". It sends nothing about the PC
+  and downloads nothing: the release page opens in the browser. Nothing else may use the network,
+  and nothing may use it without being asked.
 - **Tests must clean up** anything they create on the machine, and fixtures must not contain a
   real user name or a personal list of installed apps.
 
