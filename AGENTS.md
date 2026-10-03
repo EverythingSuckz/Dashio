@@ -16,7 +16,7 @@ dotnet test tests\Dashio.Core.Tests --filter "Category=Integration"   # user-lev
 pwsh tools\ui-tests.ps1                                               # drives a background copy of the real window
 pwsh tools\make-icon.ps1                                              # builds Assets\AppIcon.ico from the SVGs beside it
 pwsh tools\publish.ps1                                                # release folder and installer in artifacts\
-pwsh tools\ui-tests.ps1 -Exe artifacts\Dashio-0.1.1-x64\Dashio.exe    # UI tests against the release folder
+pwsh tools\ui-tests.ps1 -Exe artifacts\Dashio-0.1.2-x64\Dashio.exe    # UI tests against the release folder
 ```
 
 Close a running `Dashio.exe` before building; it locks the output.
