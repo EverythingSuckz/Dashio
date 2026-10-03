@@ -21,6 +21,9 @@ pwsh tools\ui-tests.ps1 -Exe artifacts\Dashio-0.1.0-x64\Dashio.exe    # UI tests
 
 Close a running `Dashio.exe` before building; it locks the output.
 
+For screenshots, `DASHIO_HIDE_APPS` (parts of names, separated by semicolons) leaves those apps out
+of every list (`DemoFilter`).
+
 The UI tests must never interrupt whoever is using the PC. Invoking a control through UI
 Automation activates an ordinary window, so with `DASHIO_NO_ACTIVATE=1` the window refuses
 activation, sits off the screen, and keeps its popups from being drawn (`MainWindow.StayInBackground`).

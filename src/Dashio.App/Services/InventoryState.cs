@@ -194,6 +194,7 @@ public sealed class InventoryState
         ReachesBackTo = resolver.ReachesBackTo;
 
         Apps = _apps
+            .Where(app => !DemoFilter.IsHidden(app.Owner.Name))
             .Select(app => new InstalledAppView(
                 app,
                 app.Folders.Select(f => (f, _sizes.Last(f.Path))).ToList(),

@@ -143,7 +143,8 @@ public sealed partial class ScanState : ObservableObject
     {
         var items = _items;
         var sources = _sources;
-        Groups = await Task.Run(() => AppServices.Engine.Group(items, sources));
+        Groups = await Task.Run(() => AppServices.Engine.Group(items, sources)
+            .Where(g => !DemoFilter.IsHidden(g.Name)).ToList());
         var groups = Groups;
         Attributor = await Task.Run(() => new ProcessAttributor(groups, sources));
         AppServices.Monitor.UseScan(Attributor);

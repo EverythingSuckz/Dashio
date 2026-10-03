@@ -1,11 +1,25 @@
-<p align="center">
-  <img src="src/Dashio.App/Assets/AppIcon.svg" width="112" height="112" alt="Dashio logo">
-</p>
+<div align="center">
+
+<img src="src/Dashio.App/Assets/AppIcon.svg" width="128" height="128" alt="Dashio logo">
 
 # Dashio
 
-Dashio shows what every app on your Windows 11 PC is using right now and what it has set up to
-start by itself, grouped by app, and lets you switch those things off and back on.
+**See what every app on your PC is doing, and switch off what it starts by itself.**
+
+A dashboard for Windows 11: what is running, what is installed, what fills the drive and what
+starts on its own, grouped by app.
+
+Windows 11 &nbsp;·&nbsp; .NET 10 &nbsp;·&nbsp; WinUI 3 &nbsp;·&nbsp; [MIT](LICENSE) &nbsp;·&nbsp; No network, no telemetry
+
+[The pages](#the-pages) &nbsp;·&nbsp; [Changing things](#changing-things) &nbsp;·&nbsp; [Build and run](#build-and-run) &nbsp;·&nbsp; [Privacy](#privacy)
+
+<br>
+
+<img src="docs/screenshots/overview.png" alt="The Overview page" width="900">
+
+</div>
+
+## Why
 
 Windows tracks services, scheduled tasks and startup entries in separate places, and Task
 Manager's Startup tab only shows some of them. An app can install four services and a
@@ -17,12 +31,16 @@ is recorded, and any change can be undone. It can also end a running program, st
 own uninstaller and delete a file or folder you pick on the Storage page. Those are recorded
 too, but cannot be undone from Dashio.
 
-![Overview](docs/screenshots/overview.png)
-
-| | |
-|---|---|
-| ![Processes](docs/screenshots/processes.png) | ![Apps](docs/screenshots/apps.png) |
-| ![Storage](docs/screenshots/storage.png) | ![Startup](docs/screenshots/startup.png) |
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/processes.png" alt="The Processes page"><br><p align="center"><b>Processes</b><br>Every program, grouped by app</p></td>
+    <td width="50%"><img src="docs/screenshots/apps.png" alt="The Apps page"><br><p align="center"><b>Apps</b><br>Running, startup, size and last opened</p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/storage.png" alt="The Storage page"><br><p align="center"><b>Storage</b><br>A map of each drive you can walk into</p></td>
+    <td width="50%"><img src="docs/screenshots/startup.png" alt="The Startup page"><br><p align="center"><b>Startup</b><br>Services, tasks and startup entries</p></td>
+  </tr>
+</table>
 
 ## The pages
 

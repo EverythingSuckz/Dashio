@@ -149,7 +149,9 @@ public sealed class ResourceMonitor
         _previous = sample;
         _sincePrevious.Restart();
 
-        var apps = _attributor is { } attributor ? AppsOf(sample, cpu, attributor) : [];
+        var apps = _attributor is { } attributor
+            ? AppsOf(sample, cpu, attributor).Where(a => !DemoFilter.IsHidden(a.Owner.Name)).ToList()
+            : [];
         var snapshot = new UsageSnapshot(system, apps, DateTimeOffset.Now);
         _dispatcher?.TryEnqueue(() => Publish(snapshot));
     }
