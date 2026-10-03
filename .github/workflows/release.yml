@@ -93,7 +93,8 @@ jobs:
           FEATURES=""
           FIXES=""
           OTHER=""
-          while IFS= read -r line; do
+          # The last line of the log has no line break, and would be skipped without the second test.
+          while IFS= read -r line || [ -n "$line" ]; do
             hash=$(echo "$line" | cut -d' ' -f1)
             msg=$(echo "$line" | cut -d' ' -f2-)
             clean=$(echo "$msg" | sed 's/^[a-z]*[^:]*: *//')
