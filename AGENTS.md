@@ -14,7 +14,7 @@ dotnet test tests\Dashio.Core.Tests --filter "Category!=Live&Category!=Integrati
 dotnet test tests\Dashio.Core.Tests --filter "Category=Live"          # read-only, real machine
 dotnet test tests\Dashio.Core.Tests --filter "Category=Integration"   # user-level throwaway entries
 pwsh tools\ui-tests.ps1                                               # drives a background copy of the real window
-pwsh tools\make-icon.ps1                                              # regenerates Assets\AppIcon.ico
+pwsh tools\make-icon.ps1                                              # builds Assets\AppIcon.ico from the SVGs beside it
 pwsh tools\publish.ps1                                                # release folder and installer in artifacts\
 pwsh tools\ui-tests.ps1 -Exe artifacts\Dashio-0.1.0-x64\Dashio.exe    # UI tests against the release folder
 ```

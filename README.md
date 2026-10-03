@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/Dashio.App/Assets/AppIcon.svg" width="112" height="112" alt="Dashio logo">
+</p>
+
 # Dashio
 
 Dashio shows what every app on your Windows 11 PC is using right now and what it has set up to

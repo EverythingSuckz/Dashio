@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>Dashio, for small sizes</title>
+  <defs>
+    <linearGradient id="body" x1="40" y1="32" x2="216" y2="224" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34E0C2"/>
+      <stop offset=".5" stop-color="#12A6D8"/>
+      <stop offset="1" stop-color="#0B57C2"/>
+    </linearGradient>
+  </defs>
+  <path d="M60 16h56a112 112 0 0 1 0 224H60a32 32 0 0 1-32-32V48a32 32 0 0 1 32-32z" fill="url(#body)"/>
+  <path d="M12 134h56l22-48 34 92 24-60 16 16h60" fill="none" stroke="#fff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

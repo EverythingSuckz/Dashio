@@ -1,63 +1,50 @@
-# Draws the Dashio app icon and writes src\Dashio.App\Assets\AppIcon.ico.
-# The icon is three switches on a rounded tile: two on, one off.
-# Run from anywhere:  pwsh tools\make-icon.ps1
+# Builds src\Dashio.App\Assets\AppIcon.ico from the two drawings beside it:
+# AppIcon.svg, and AppIconSmall.svg, a plainer one for the sizes where the detail would blur.
+# Microsoft Edge draws them, without opening a window. Run from anywhere:  pwsh tools\make-icon.ps1
 
 Add-Type -AssemblyName System.Drawing
 
-$output = Join-Path $PSScriptRoot '..\src\Dashio.App\Assets\AppIcon.ico'
+$assets = (Resolve-Path (Join-Path $PSScriptRoot '..\src\Dashio.App\Assets')).Path
+$output = Join-Path $assets 'AppIcon.ico'
 $sizes = 16, 20, 24, 32, 40, 48, 64, 256
+$smallUpTo = 32
+$drawnAt = 1024
 
-function New-RoundedRectangle([single]$x, [single]$y, [single]$w, [single]$h, [single]$r) {
-    $path = [System.Drawing.Drawing2D.GraphicsPath]::new()
-    $d = $r * 2
-    $path.AddArc($x, $y, $d, $d, 180, 90)
-    $path.AddArc($x + $w - $d, $y, $d, $d, 270, 90)
-    $path.AddArc($x + $w - $d, $y + $h - $d, $d, $d, 0, 90)
-    $path.AddArc($x, $y + $h - $d, $d, $d, 90, 90)
-    $path.CloseFigure()
-    return $path
+$edge = "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe" |
+    Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $edge) { throw 'Microsoft Edge is needed to draw the icon and was not found.' }
+
+$work = Join-Path ([System.IO.Path]::GetTempPath()) "dashio-icon-$([guid]::NewGuid().ToString('N'))"
+New-Item -ItemType Directory -Force $work | Out-Null
+
+function Get-Drawing([string]$svg) {
+    $page = Join-Path $work 'page.html'
+    $png = Join-Path $work 'drawing.png'
+    $source = ([uri](Join-Path $assets $svg)).AbsoluteUri
+    "<html><body style='margin:0;background:transparent'><img src='$source' width='$drawnAt' height='$drawnAt'></body></html>" |
+        Set-Content $page -Encoding utf8
+    $arguments = '--headless=new', '--disable-gpu', '--hide-scrollbars', '--default-background-color=00000000',
+        "--user-data-dir=`"$(Join-Path $work 'profile')`"", "--window-size=$drawnAt,$drawnAt",
+        "--screenshot=`"$png`"", ([uri]$page).AbsoluteUri
+    $process = Start-Process $edge -ArgumentList $arguments -PassThru -WindowStyle Hidden
+    if (-not $process.WaitForExit(60000) -or -not (Test-Path $png)) { throw "Edge did not draw $svg." }
+    $bytes = [System.IO.File]::ReadAllBytes($png)
+    Remove-Item $png
+    return [System.Drawing.Bitmap]::new([System.IO.MemoryStream]::new($bytes))
 }
 
-function New-IconPng([int]$size) {
+function New-IconPng([System.Drawing.Bitmap]$drawing, [int]$size) {
     $bitmap = [System.Drawing.Bitmap]::new($size, $size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $g = [System.Drawing.Graphics]::FromImage($bitmap)
-    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
     $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+    $g.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
     $g.Clear([System.Drawing.Color]::Transparent)
-    # Everything below is drawn on a 256 x 256 canvas.
-    $g.ScaleTransform($size / 256.0, $size / 256.0)
-
-    $indigo = [System.Drawing.Color]::FromArgb(255, 84, 80, 214)
-    $teal = [System.Drawing.Color]::FromArgb(255, 22, 176, 196)
-    $knob = [System.Drawing.Color]::FromArgb(255, 60, 62, 184)
-    $white = [System.Drawing.Color]::White
-
-    $tile = New-RoundedRectangle 12 12 232 232 54
-    $gradient = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
-        [System.Drawing.PointF]::new(12, 12), [System.Drawing.PointF]::new(244, 244), $indigo, $teal)
-    $g.FillPath($gradient, $tile)
-
-    $trackX = 60; $trackW = 136; $trackH = 38; $knobSize = 26; $inset = 6
-    $rows = @(
-        @{ Y = 56; On = $true },
-        @{ Y = 109; On = $true },
-        @{ Y = 162; On = $false }
-    )
-    foreach ($row in $rows) {
-        $track = New-RoundedRectangle $trackX $row.Y $trackW $trackH ($trackH / 2)
-        if ($row.On) {
-            $g.FillPath([System.Drawing.SolidBrush]::new($white), $track)
-            $knobX = $trackX + $trackW - $inset - $knobSize
-            $g.FillEllipse([System.Drawing.SolidBrush]::new($knob), $knobX, $row.Y + $inset, $knobSize, $knobSize)
-        }
-        else {
-            $outline = New-RoundedRectangle ($trackX + 3) ($row.Y + 3) ($trackW - 6) ($trackH - 6) (($trackH - 6) / 2)
-            $pen = [System.Drawing.Pen]::new($white, 6)
-            $g.DrawPath($pen, $outline)
-            $g.FillEllipse([System.Drawing.SolidBrush]::new($white), $trackX + $inset + 2, $row.Y + $inset + 2, $knobSize - 4, $knobSize - 4)
-        }
-    }
-
+    # Without this the edge pixels are blended with a border that is not there.
+    $attributes = [System.Drawing.Imaging.ImageAttributes]::new()
+    $attributes.SetWrapMode([System.Drawing.Drawing2D.WrapMode]::TileFlipXY)
+    $g.DrawImage($drawing, [System.Drawing.Rectangle]::new(0, 0, $size, $size), 0, 0, $drawing.Width, $drawing.Height,
+        [System.Drawing.GraphicsUnit]::Pixel, $attributes)
     $g.Dispose()
     $stream = [System.IO.MemoryStream]::new()
     $bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
@@ -65,41 +52,62 @@ function New-IconPng([int]$size) {
     return , $stream.ToArray()
 }
 
-# An .ico file is a small directory followed by the images; PNG images are allowed at any size.
-$images = foreach ($size in $sizes) { , (New-IconPng $size) }
+try {
+    $full = Get-Drawing 'AppIcon.svg'
+    $small = Get-Drawing 'AppIconSmall.svg'
+    $images = foreach ($size in $sizes) { , (New-IconPng ($size -le $smallUpTo ? $small : $full) $size) }
 
-$file = [System.IO.MemoryStream]::new()
-$writer = [System.IO.BinaryWriter]::new($file)
-$writer.Write([uint16]0)              # reserved
-$writer.Write([uint16]1)              # type: icon
-$writer.Write([uint16]$sizes.Count)
+    # An .ico file is a small directory followed by the images; PNG images are allowed at any size.
+    $file = [System.IO.MemoryStream]::new()
+    $writer = [System.IO.BinaryWriter]::new($file)
+    $writer.Write([uint16]0)              # reserved
+    $writer.Write([uint16]1)              # type: icon
+    $writer.Write([uint16]$sizes.Count)
 
-$offset = 6 + 16 * $sizes.Count
-for ($i = 0; $i -lt $sizes.Count; $i++) {
-    $dimension = if ($sizes[$i] -ge 256) { 0 } else { $sizes[$i] }
-    $writer.Write([byte]$dimension)   # width (0 means 256)
-    $writer.Write([byte]$dimension)   # height
-    $writer.Write([byte]0)            # palette size
-    $writer.Write([byte]0)            # reserved
-    $writer.Write([uint16]1)          # colour planes
-    $writer.Write([uint16]32)         # bits per pixel
-    $writer.Write([uint32]$images[$i].Length)
-    $writer.Write([uint32]$offset)
-    $offset += $images[$i].Length
+    $offset = 6 + 16 * $sizes.Count
+    for ($i = 0; $i -lt $sizes.Count; $i++) {
+        $dimension = if ($sizes[$i] -ge 256) { 0 } else { $sizes[$i] }
+        $writer.Write([byte]$dimension)   # width (0 means 256)
+        $writer.Write([byte]$dimension)   # height
+        $writer.Write([byte]0)            # palette size
+        $writer.Write([byte]0)            # reserved
+        $writer.Write([uint16]1)          # colour planes
+        $writer.Write([uint16]32)         # bits per pixel
+        $writer.Write([uint32]$images[$i].Length)
+        $writer.Write([uint32]$offset)
+        $offset += $images[$i].Length
+    }
+    foreach ($image in $images) { $writer.Write($image) }
+    $writer.Flush()
+
+    [System.IO.File]::WriteAllBytes($output, $file.ToArray())
+    Write-Host "Wrote $output ($($file.Length) bytes, sizes: $($sizes -join ', '))"
+
+    # Every size side by side on a light and a dark strip, for a quick look.
+    $preview = Join-Path ([System.IO.Path]::GetTempPath()) 'dashio-icon-preview.png'
+    $sheet = [System.Drawing.Bitmap]::new(720, 560)
+    $sg = [System.Drawing.Graphics]::FromImage($sheet)
+    $sg.Clear([System.Drawing.Color]::FromArgb(243, 243, 243))
+    $sg.FillRectangle([System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(32, 32, 32)), 0, 280, 720, 280)
+    foreach ($top in 12, 292) {
+        $x = 12
+        for ($i = $sizes.Count - 1; $i -ge 0; $i--) {
+            $image = [System.Drawing.Image]::FromStream([System.IO.MemoryStream]::new($images[$i]))
+            $sg.DrawImageUnscaled($image, $x, $top)
+            $x += $sizes[$i] + 16
+        }
+    }
+    $sg.Dispose()
+    $sheet.Save($preview, [System.Drawing.Imaging.ImageFormat]::Png)
+    Write-Host "Preview: $preview"
 }
-foreach ($image in $images) { $writer.Write($image) }
-$writer.Flush()
-
-[System.IO.File]::WriteAllBytes($output, $file.ToArray())
-Write-Host "Wrote $((Resolve-Path $output).Path) ($($file.Length) bytes, sizes: $($sizes -join ', '))"
-
-# A PNG preview next to the script's temp output, for a quick look.
-$preview = Join-Path ([System.IO.Path]::GetTempPath()) 'dashio-icon-preview.png'
-[System.IO.File]::WriteAllBytes($preview, (New-IconPng 256))
-Write-Host "Preview: $preview"
+finally {
+    Start-Sleep -Milliseconds 500
+    try { [System.IO.Directory]::Delete($work, $true) } catch { }
+}
 
 # The four-square mark shown for Windows itself in the lists.
-$logoPath = Join-Path $PSScriptRoot '..\src\Dashio.App\Assets\WindowsLogo.png'
+$logoPath = Join-Path $assets 'WindowsLogo.png'
 $logoSize = 128
 $logo = [System.Drawing.Bitmap]::new($logoSize, $logoSize, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
 $lg = [System.Drawing.Graphics]::FromImage($logo)
@@ -113,4 +121,4 @@ foreach ($x in $margin, ($margin + $square + $gap)) {
 $lg.Dispose()
 $logo.Save($logoPath, [System.Drawing.Imaging.ImageFormat]::Png)
 $logo.Dispose()
-Write-Host "Wrote $((Resolve-Path $logoPath).Path)"
+Write-Host "Wrote $logoPath"
